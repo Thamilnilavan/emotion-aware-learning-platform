@@ -28,4 +28,13 @@ model/*.weights
 .idea/
 .DS_Store
 *.swp
-.dataset
+
+# Datasets and Large Files
+dataset/
+model/DATASET/
+model/*.csv
+*.h5
+*.keras
+*.weights
+*.mp4
+*.avi
