@@ -2,15 +2,16 @@ import api from '@/lib/axios';
 
 
 export interface AIAnalysisResult {
-  session_id: string;
-  timestamp: number | null;
-  face_detection: any;
-  emotion: any;
-  eye_gaze: any;
-  head_pose: any;
-  attention: any;
-  engagement: any;
-  intervention: any;
+  emotion: string;
+  emotion_confidence: number;
+  attention: number;
+  face_detected: boolean;
+  fatigue_level: number;
+  timestamp: number;
+  probabilities?: Record<string, number>;
+  class_id?: number;
+  color?: string;
+  description?: string;
 }
 
 export interface AISessionAnalysis {

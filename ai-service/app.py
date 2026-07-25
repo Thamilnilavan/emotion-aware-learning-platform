@@ -1,110 +1,225 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import os
-import cv2
-import numpy as np
-import base64
 from datetime import datetime
-from dotenv import load_dotenv
+import os
+import logging
 
-# Import our custom modules
-from emotion_detector import EmotionDetector
-from attention_tracker import AttentionTracker
-from engagement_scorer import EngagementScorer
+# Import configuration and utilities
+from config import Config
+from utils import ImagePreprocessor, EmotionPredictor
 
-# Load environment variables
-load_dotenv()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
+# Initialize Flask app
 app = Flask(__name__)
+Config.init_app(app)
+
 # Enable CORS
-CORS(app, origins=os.getenv('CORS_ORIGINS', '*').split(','))
+CORS(app, origins=Config.CORS_ORIGINS)
 
 # Initialize AI components
-model_path = os.getenv('MODEL_PATH', 'model/emotion_model.h5')
-confidence_threshold = float(os.getenv('CONFIDENCE_THRESHOLD', 0.55))
+print("=" * 50)
+print("Initializing Emotion AI Service")
+print("=" * 50)
 
-print("Initializing AI components...")
-emotion_detector = EmotionDetector(model_path, confidence_threshold)
-attention_tracker = AttentionTracker()
-engagement_scorer = EngagementScorer()
+preprocessor = ImagePreprocessor()
+predictor = EmotionPredictor()
 
-@app.route('/health', methods=['GET'])
-def health():
-    """Checks if model is loaded and MediaPipe is available"""
+print(f"Model loaded: {predictor.is_model_loaded()}")
+print(f"Model path: {Config.MODEL_PATH}")
+print(f"Input size: {Config.MODEL_INPUT_SIZE}")
+print("=" * 50)
+
+@app.route('/', methods=['GET'])
+def home():
+    """Home endpoint with service information"""
     return jsonify({
-        "status": "ok",
-        "model_loaded": not emotion_detector.demo_mode,
-        "demo_mode": emotion_detector.demo_mode,
-        "mediapipe": True, # MediaPipe is available if attention_tracker initialized without errors
+        "service": "Emotion Recognition AI Service",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "predict": "/predict",
+            "batch_predict": "/batch_predict",
+            "model_info": "/model/info"
+        },
         "timestamp": datetime.now().isoformat()
     })
 
-@app.route('/analyse', methods=['POST'])
-def analyse():
-    """Receives a JPEG frame, runs emotion detection + attention tracking, returns results"""
-    try:
-        data = request.json
-        if not data or 'frame' not in data:
-            return jsonify({"error": "No frame provided"}), 400
-            
-        # Assuming frame is base64 encoded JPEG
-        frame_data = data['frame']
-        if ',' in frame_data:
-            frame_data = frame_data.split(',')[1]
-            
-        frame_bytes = base64.b64decode(frame_data)
-        np_arr = np.frombuffer(frame_bytes, np.uint8)
-        frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-        
-        if frame is None:
-            return jsonify({"error": "Failed to decode image"}), 400
-            
-        # Run emotion detection
-        emotion, emotion_confidence = emotion_detector.detect(frame)
-        
-        # Run attention tracking (MediaPipe requires RGB)
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        is_attentive = attention_tracker.process_frame(frame_rgb)
-        
-        return jsonify({
-            "emotion": emotion,
-            "emotion_confidence": float(emotion_confidence),
-            "attention": is_attentive,
-            "timestamp": datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        print(f"Error in analyse endpoint: {e}")
-        return jsonify({"error": str(e)}), 500
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "healthy",
+        "model_loaded": predictor.is_model_loaded(),
+        "model_path": Config.MODEL_PATH,
+        "timestamp": datetime.now().isoformat()
+    })
 
-@app.route('/score', methods=['POST'])
-def score():
-    """Receives 30 seconds of frames, computes engagement score and state"""
+@app.route('/model/info', methods=['GET'])
+def model_info():
+    """Get model information"""
+    return jsonify({
+        **predictor.get_model_info(),
+        "timestamp": datetime.now().isoformat()
+    })
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    """
+    Predict emotion from a single image
+    
+    Request body:
+    {
+        "image": "base64_encoded_image_string"
+    }
+    
+    Response:
+    {
+        "success": true,
+        "emotion": "Happy",
+        "confidence": 0.96,
+        "class_id": 3,
+        "probabilities": {...},
+        "color": "#FFD93D",
+        "description": "Expression of pleasure or contentment"
+    }
+    """
     try:
         data = request.json
-        if not data or 'frames' not in data:
-            return jsonify({"error": "No frames provided"}), 400
-            
-        frames = data['frames']
-        result = engagement_scorer.aggregate_window(frames)
+        
+        if not data or 'image' not in data:
+            return jsonify({
+                "success": False,
+                "error": "No image provided"
+            }), 400
+        
+        # Preprocess image
+        preprocessed_img, is_valid = preprocessor.preprocess_image(data['image'])
+        
+        if not is_valid:
+            return jsonify({
+                "success": False,
+                "error": "No face detected in image"
+            }), 400
+        
+        # Predict emotion
+        result = predictor.predict(preprocessed_img)
+        
+        if 'error' in result:
+            return jsonify({
+                "success": False,
+                "error": result['error']
+            }), 500
         
         return jsonify({
-            "score": result['score'],
-            "state": result['state'],
+            "success": True,
+            **result,
             "timestamp": datetime.now().isoformat()
         })
         
     except Exception as e:
-        print(f"Error in score endpoint: {e}")
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in predict endpoint: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/batch_predict', methods=['POST'])
+def batch_predict():
+    """
+    Predict emotions from multiple images
+    
+    Request body:
+    {
+        "images": ["base64_image_1", "base64_image_2", ...]
+    }
+    
+    Response:
+    {
+        "success": true,
+        "results": [
+            {
+                "emotion": "Happy",
+                "confidence": 0.96,
+                ...
+            },
+            ...
+        ]
+    }
+    """
+    try:
+        data = request.json
+        
+        if not data or 'images' not in data:
+            return jsonify({
+                "success": False,
+                "error": "No images provided"
+            }), 400
+        
+        images = data['images']
+        
+        if not isinstance(images, list):
+            return jsonify({
+                "success": False,
+                "error": "Images must be an array"
+            }), 400
+        
+        # Preprocess images
+        preprocessed_images, valid_images = preprocessor.preprocess_batch(images)
+        
+        # Predict emotions
+        results = predictor.predict_batch(preprocessed_images)
+        
+        return jsonify({
+            "success": True,
+            "results": results,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in batch_predict endpoint: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors"""
+    return jsonify({
+        "success": False,
+        "error": "Endpoint not found"
+    }), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    logger.error(f"Internal server error: {error}")
+    return jsonify({
+        "success": False,
+        "error": "Internal server error"
+    }), 500
 
 if __name__ == '__main__':
-    port = int(os.getenv('FLASK_PORT', 5001))
-    env = os.getenv('FLASK_ENV', 'development')
+    print(f"\nStarting Flask AI Service on {Config.HOST}:{Config.PORT}")
+    print(f"Debug mode: {Config.DEBUG}")
+    print(f"CORS origins: {Config.CORS_ORIGINS}")
+    print("\nAvailable endpoints:")
+    print("  GET  /              - Service information")
+    print("  GET  /health        - Health check")
+    print("  GET  /model/info    - Model information")
+    print("  POST /predict       - Single image prediction")
+    print("  POST /batch_predict - Batch image prediction")
+    print("\n" + "=" * 50 + "\n")
     
-    print(f" * Running on http://0.0.0.0:{port}")
-    print(f" * Model loaded: {not emotion_detector.demo_mode}")
-    print(f" * Demo mode: {emotion_detector.demo_mode}")
-    print(f" * MediaPipe: True")
-    
-    app.run(host='0.0.0.0', port=port, debug=(env == 'development'))
+    app.run(
+        host=Config.HOST,
+        port=Config.PORT,
+        debug=Config.DEBUG
+    )

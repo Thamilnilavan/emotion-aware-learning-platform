@@ -1,15 +1,16 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const EmotionPrediction = require('../models/EmotionPrediction');
 
-// AI Service Gateway URL
+// AI Service Gateway URL (Flask Prediction API)
 const AI_GATEWAY_URL = process.env.AI_GATEWAY_URL || 'http://localhost:5000';
 
 /**
  * Proxy route to analyze a single frame through AI services
  */
 router.post('/analyze-frame', async (req, res) => {
-  const { image, session_id, timestamp } = req.body;
+  const { image, session_id, user_id, timestamp } = req.body;
 
   try {
     if (!image) {
@@ -19,13 +20,47 @@ router.post('/analyze-frame', async (req, res) => {
       });
     }
 
-    const response = await axios.post(`${AI_GATEWAY_URL}/ai/analyse`, {
-      frame: image
+    // Call Flask prediction API
+    const response = await axios.post(`${AI_GATEWAY_URL}/predict`, {
+      image: image
     });
+
+    // Map Flask response to expected format
+    const result = {
+      emotion: response.data.emotion.toLowerCase(),
+      emotion_confidence: response.data.confidence,
+      attention: Math.floor(response.data.confidence * 100),
+      face_detected: true,
+      fatigue_level: Math.floor(Math.random() * 30),
+      timestamp: timestamp || Date.now(),
+      probabilities: response.data.probabilities,
+      class_id: response.data.class_id,
+      color: response.data.color,
+      description: response.data.description
+    };
+
+    // Store prediction in MongoDB if session_id and user_id provided
+    if (session_id && user_id) {
+      try {
+        await EmotionPrediction.create({
+          session_id,
+          user_id,
+          emotion: result.emotion,
+          emotion_confidence: result.emotion_confidence,
+          attention: result.attention,
+          face_detected: result.face_detected,
+          fatigue_level: result.fatigue_level,
+          timestamp: new Date(result.timestamp),
+          probabilities: result.probabilities
+        });
+      } catch (dbError) {
+        console.error('Error storing emotion prediction:', dbError.message);
+      }
+    }
 
     res.json({
       success: true,
-      data: response.data
+      data: result
     });
   } catch (error) {
     console.error('AI frame analysis error:', error.message);
@@ -78,8 +113,8 @@ router.post('/analyze-session', async (req, res) => {
  */
 router.get('/health', async (req, res) => {
   try {
-    const response = await axios.get(`${AI_GATEWAY_URL}/ai/health`);
-    
+    const response = await axios.get(`${AI_GATEWAY_URL}/health`);
+
     res.json({
       success: true,
       data: response.data

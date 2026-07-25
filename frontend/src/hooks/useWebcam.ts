@@ -87,15 +87,19 @@ export function useWebcam() {
                   const image = base64data.split(',')[1]; // Remove data URL prefix
                   
                   const result = await aiService.analyzeFrame(image);
-                  
+
                   onFrameResult({
                     emotion: result.emotion || 'Neutral',
-                    confidence: result.confidence || 0.5,
+                    confidence: result.emotion_confidence || 0.5,
                     valence: 0.6, // Would come from emotion valence mapping
                     attention: result.attention > 50,
-                    yaw: result.yaw || 0,
+                    yaw: 0,
                     interaction,
                     error: false,
+                    color: result.color,
+                    description: result.description,
+                    class_id: result.class_id,
+                    probabilities: result.probabilities,
                   });
                 };
                 reader.readAsDataURL(blob);

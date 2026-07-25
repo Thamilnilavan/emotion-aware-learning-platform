@@ -28,3 +28,4 @@ model/*.weights
 .idea/
 .DS_Store
 *.swp
+.dataset
