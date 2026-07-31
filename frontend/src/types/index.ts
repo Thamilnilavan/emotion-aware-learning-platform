@@ -84,6 +84,10 @@ export interface FrameResult {
   demo_mode?: boolean;
   error?: boolean;
   timestamp?: string;
+  color?: string;
+  description?: string;
+  class_id?: number;
+  probabilities?: Record<string, number>;
 }
 
 export interface Intervention {

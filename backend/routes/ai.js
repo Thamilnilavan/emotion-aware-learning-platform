@@ -180,15 +180,59 @@ router.post('/detect-faces', async (req, res) => {
 router.post('/calculate-engagement', async (req, res) => {
   try {
     const { session_data, duration } = req.body;
-    
+
     if (!session_data) return res.status(400).json({ success: false, message: 'Session data is required' });
 
-    const response = await axios.post(`${AI_GATEWAY_URL}/ai/score`, {
-      frames: session_data
+    // Calculate engagement score locally based on frame data
+    let totalAttention = 0;
+    let totalConfidence = 0;
+    let positiveEmotions = 0;
+    const emotionCounts = {};
+
+    session_data.forEach((frame) => {
+      totalAttention += frame.attention || 0;
+      totalConfidence += frame.confidence || 0;
+      emotionCounts[frame.emotion] = (emotionCounts[frame.emotion] || 0) + 1;
+
+      // Count positive emotions (happy, focused, neutral)
+      if (['happy', 'focused', 'neutral'].includes(frame.emotion?.toLowerCase())) {
+        positiveEmotions++;
+      }
     });
 
-    res.json({ success: true, data: response.data });
+    const avgAttention = session_data.length > 0 ? totalAttention / session_data.length : 0;
+    const avgConfidence = session_data.length > 0 ? totalConfidence / session_data.length : 0;
+    const positiveRatio = session_data.length > 0 ? positiveEmotions / session_data.length : 0;
+
+    // Calculate engagement score (0-100)
+    const engagementScore = Math.round(
+      (avgAttention * 0.5) +
+      (avgConfidence * 100 * 0.3) +
+      (positiveRatio * 100 * 0.2)
+    );
+
+    // Determine engagement state
+    let state = 'ENGAGED';
+    if (engagementScore < 40) {
+      state = 'DISTRACTED';
+    } else if (engagementScore < 60) {
+      state = 'MILD_DISTRACTION';
+    } else if (engagementScore < 30) {
+      state = 'BREAK_NEEDED';
+    }
+
+    res.json({
+      success: true,
+      data: {
+        engagementScore,
+        state,
+        attentionScore: avgAttention,
+        confidenceScore: avgConfidence,
+        emotionDistribution: emotionCounts
+      }
+    });
   } catch (error) {
+    console.error('Engagement calculation error:', error);
     res.status(500).json({ success: false, message: 'Engagement calculation failed', error: error.message });
   }
 });

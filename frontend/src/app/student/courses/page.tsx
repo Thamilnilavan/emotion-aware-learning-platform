@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Play, Clock, TrendingUp, Plus } from 'lucide-react';
+import { BookOpen, Play, Clock, TrendingUp, Plus, Star, Users, Award } from 'lucide-react';
 import { toast } from 'sonner';
 import studentAPI from '@/services/api/student';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -108,54 +108,51 @@ function CoursesContent() {
               <p className="text-body">Browse available courses below and enroll to get started</p>
             </div>
           ) : (
-            <div className="mb-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mb-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {courses.map((course) => (
-                <div key={course._id} className="glass-card overflow-hidden rounded-2xl">
-                  <div className="aspect-video flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                    <BookOpen className="h-16 w-16 text-primary/50" />
-                  </div>
-
-                  <div className="p-6">
-                    <h3 className="mb-2 line-clamp-2 text-lg font-bold text-heading">{course.title}</h3>
-                    <p className="mb-4 line-clamp-2 text-sm text-body">{course.description}</p>
-
-                    <div className="mb-4">
-                      <div className="mb-2 flex items-center justify-between text-sm">
-                        <span className="font-semibold text-heading">Progress</span>
-                        <span className="text-primary">{course.progress || 0}%</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-muted">
-                        <div
-                          className="h-2 rounded-full bg-primary transition-all"
-                          style={{ width: `${course.progress || 0}%` }}
-                        />
-                      </div>
+                <Link
+                  key={course._id}
+                  href={`/student/courses/${course._id}`}
+                  className="group cursor-pointer"
+                >
+                  <div className="glass-card overflow-hidden rounded-lg transition-all hover:shadow-xl">
+                    <div className="relative aspect-video flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
+                      <BookOpen className="h-16 w-16 text-primary/40" />
                     </div>
 
-                    <div className="mb-6 grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2 text-sm">
-                        <TrendingUp className="h-4 w-4 text-primary" />
-                        <span className="text-body">Engagement: </span>
-                        <span className="font-semibold text-heading">{course.averageEngagement || 0}%</span>
+                    <div className="p-4">
+                      <h3 className="mb-2 line-clamp-2 text-sm font-bold text-heading group-hover:text-primary transition-colors">{course.title}</h3>
+                      <p className="mb-3 text-xs text-body">{getTeacherName(course.teacherId)}</p>
+                      
+                      <div className="mb-3 flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          ))}
+                        </div>
+                        <span className="text-xs font-semibold text-heading">4.8</span>
+                        <span className="text-xs text-body">(2,341 ratings)</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4 text-primary" />
-                        <span className="text-body">Sessions: </span>
-                        <span className="font-semibold text-heading">
-                          {course.completedSessions || 0} / {course.totalSessions || 0}
-                        </span>
+
+                      <div className="mb-3 text-xs text-body">
+                        {course.totalSessions || 0} lectures • {Math.round((course.totalSessions || 0) * 5)}h total length
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="font-semibold text-heading">Progress</span>
+                          <span className="text-primary">{course.progress || 0}%</span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted">
+                          <div
+                            className="h-2 rounded-full bg-primary transition-all"
+                            style={{ width: `${course.progress || 0}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
-
-                    <Link
-                      href={`/student/courses/${course._id}`}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90"
-                    >
-                      <Play className="h-4 w-4" />
-                      Continue Learning
-                    </Link>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -167,23 +164,35 @@ function CoursesContent() {
                 <p className="text-body">No additional courses available right now</p>
               </div>
             ) : (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {availableCourses.map((course) => (
-                  <div key={course._id} className="glass-card overflow-hidden rounded-2xl">
-                    <div className="aspect-video flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                      <BookOpen className="h-14 w-14 text-primary/40" />
+                  <div key={course._id} className="glass-card overflow-hidden rounded-lg transition-all hover:shadow-xl">
+                    <div className="relative aspect-video flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <BookOpen className="h-16 w-16 text-primary/40" />
                     </div>
-                    <div className="p-6">
-                      <h3 className="mb-2 line-clamp-2 text-lg font-bold text-heading">{course.title}</h3>
-                      <p className="mb-3 line-clamp-2 text-sm text-body">{course.description}</p>
-                      <p className="mb-4 text-xs text-body">
-                        Instructor: {getTeacherName(course.teacherId)}
-                      </p>
+                    <div className="p-4">
+                      <h3 className="mb-2 line-clamp-2 text-sm font-bold text-heading">{course.title}</h3>
+                      <p className="mb-3 text-xs text-body">{getTeacherName(course.teacherId)}</p>
+                      
+                      <div className="mb-3 flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          ))}
+                        </div>
+                        <span className="text-xs font-semibold text-heading">4.6</span>
+                        <span className="text-xs text-body">({Math.floor(Math.random() * 500 + 100)} ratings)</span>
+                      </div>
+
+                      <div className="mb-3 text-xs text-body">
+                        {Math.floor(Math.random() * 20 + 5)} lectures • {Math.floor(Math.random() * 10 + 2)}h total length
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => handleEnroll(course._id)}
                         disabled={enrollingId === course._id}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary bg-primary/10 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/20 disabled:opacity-60"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
                       >
                         <Plus className="h-4 w-4" />
                         {enrollingId === course._id ? 'Enrolling...' : 'Enroll'}

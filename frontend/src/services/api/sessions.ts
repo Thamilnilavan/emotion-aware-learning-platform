@@ -7,7 +7,7 @@ export const sessionAPI = {
   sendWindow: (sessionId: string, windowData: Record<string, any>) =>
     api.post<{ success: boolean; windowCount: number }>(`/sessions/${sessionId}/window`, windowData),
   end: (sessionId: string) =>
-    api.post<{ success: boolean; session: LearningSession }>(`/sessions/${sessionId}/end`),
+    api.post<{ success: boolean; session: LearningSession }>(`/sessions/${sessionId}/end`, {}, { timeout: 60000 }),
   getMy: (page = 1, limit = 10) =>
     api.get<{ success: boolean; sessions: LearningSession[]; totalCount: number; currentPage: number; totalPages: number }>(
       '/sessions/my',

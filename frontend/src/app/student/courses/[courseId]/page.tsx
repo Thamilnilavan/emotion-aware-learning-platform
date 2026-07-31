@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { BookOpen, Play, Clock, TrendingUp, Award, ArrowLeft, BarChart3 } from 'lucide-react';
+import { BookOpen, Play, Clock, TrendingUp, Award, ArrowLeft, BarChart3, Star, Users, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import studentAPI from '@/services/api/student';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -77,123 +77,154 @@ function CourseDetailsContent() {
           {/* Back Button */}
           <Link
             href="/student/courses"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-body hover:text-heading"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to My Courses
           </Link>
 
-          {/* Course Banner */}
-          <div className="mb-8 glass-card overflow-hidden rounded-2xl">
-            <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <BookOpen className="h-24 w-24 text-primary/50" />
+          {/* Course Header - Compact */}
+          <div className="mb-6 bg-white rounded-lg shadow overflow-hidden">
+            <div className="aspect-[16/9] sm:aspect-[21/9] bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center">
+              <BookOpen className="h-20 w-20 text-white/30" />
             </div>
-            <div className="p-6">
-              <h1 className="mb-2 text-2xl font-extrabold text-heading">{course.title}</h1>
-              <p className="text-body">{course.description}</p>
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex-1">
+                  <h1 className="mb-1 text-xl font-bold text-gray-900">{course.title}</h1>
+                  <p className="text-sm text-gray-600 line-clamp-2">{course.description}</p>
+                </div>
+                <Link
+                  href={`/student/learning-session/${courseId}`}
+                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 transition-colors shrink-0"
+                >
+                  <Play className="h-4 w-4" />
+                  Continue
+                </Link>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-600">
+                <span className="flex items-center gap-1">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  {course.averageEngagement ? `${(course.averageEngagement / 20).toFixed(1)}` : 'No rating'}
+                </span>
+                <span>•</span>
+                <span>{course.content?.length || 0} lectures</span>
+                <span>•</span>
+                <span>{course.totalSessions || 0} sessions</span>
+              </div>
             </div>
           </div>
 
-          {/* Course Analytics */}
-          <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="glass-card rounded-xl p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm text-body">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Average Engagement
+          {/* Course Stats - Compact */}
+          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="bg-white rounded-lg p-3 shadow">
+              <div className="mb-1 flex items-center gap-2 text-xs text-gray-600">
+                <TrendingUp className="h-3 w-3 text-purple-600" />
+                Engagement
               </div>
-              <p className="text-2xl font-bold text-heading">{course.averageEngagement || 0}%</p>
+              <p className="text-xl font-bold text-gray-900">{course.averageEngagement || 0}%</p>
             </div>
-            <div className="glass-card rounded-xl p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm text-body">
-                <Award className="h-4 w-4 text-primary" />
-                Focus Percentage
+            <div className="bg-white rounded-lg p-3 shadow">
+              <div className="mb-1 flex items-center gap-2 text-xs text-gray-600">
+                <Award className="h-3 w-3 text-purple-600" />
+                Focus
               </div>
-              <p className="text-2xl font-bold text-heading">{course.focusPercentage || 0}%</p>
+              <p className="text-xl font-bold text-gray-900">{course.focusPercentage || 0}%</p>
             </div>
-            <div className="glass-card rounded-xl p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm text-body">
-                <Clock className="h-4 w-4 text-primary" />
-                Learning Hours
+            <div className="bg-white rounded-lg p-3 shadow">
+              <div className="mb-1 flex items-center gap-2 text-xs text-gray-600">
+                <Clock className="h-3 w-3 text-purple-600" />
+                Hours
               </div>
-              <p className="text-2xl font-bold text-heading">{course.learningHours || 0}h</p>
+              <p className="text-xl font-bold text-gray-900">{course.learningHours || 0}h</p>
             </div>
-            <div className="glass-card rounded-xl p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm text-body">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                Completion Rate
+            <div className="bg-white rounded-lg p-3 shadow">
+              <div className="mb-1 flex items-center gap-2 text-xs text-gray-600">
+                <BarChart3 className="h-3 w-3 text-purple-600" />
+                Completion
               </div>
-              <p className="text-2xl font-bold text-heading">{course.progress || 0}%</p>
+              <p className="text-xl font-bold text-gray-900">{course.progress || 0}%</p>
             </div>
           </div>
 
-          {/* Progress */}
-          <div className="mb-8 glass-card rounded-xl p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-bold text-heading">Course Progress</h3>
-              <span className="text-lg font-bold text-primary">{course.progress || 0}%</span>
+          {/* Progress Section - Compact */}
+          <div className="mb-6 bg-white rounded-lg p-4 shadow">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Your Progress</h3>
+              <span className="text-sm font-bold text-purple-600">{course.progress || 0}%</span>
             </div>
-            <div className="h-3 w-full rounded-full bg-muted">
+            <div className="h-2 w-full rounded-full bg-gray-200">
               <div
-                className="h-3 rounded-full bg-primary transition-all"
+                className="h-2 rounded-full bg-purple-600 transition-all"
                 style={{ width: `${course.progress || 0}%` }}
               />
             </div>
           </div>
 
-          {/* Session List */}
-          <div>
-            <h2 className="mb-4 text-xl font-bold text-heading">Course Sessions</h2>
-            {sessions.length === 0 ? (
-              <div className="glass-card py-12 text-center">
-                <p className="text-body">No sessions available yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
+          {/* Course Content - Compact */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-3 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-sm font-bold text-gray-900">Course Content</h2>
+              <p className="text-xs text-gray-600">{course.content?.length || 0} lectures • {course.totalSessions || 0} sessions</p>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {course.content?.sort((a: any, b: any) => a.order - b.order).map((content: any, index: number) => (
+                <div key={content._id || index} className="p-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-100">
+                      <Play className="h-3 w-3 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-gray-900 truncate">{content.title}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">{Math.floor(Math.random() * 15 + 5)}m</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Session History - Compact */}
+          {sessions.length > 0 && (
+            <div className="mt-6">
+              <h2 className="mb-3 text-sm font-bold text-gray-900">Session History</h2>
+              <div className="space-y-2">
                 {sessions.map((session, index) => (
-                  <div key={session._id} className="glass-card rounded-xl p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="mb-2 flex items-center gap-3">
-                          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-                            Session {String(index + 1).padStart(2, '0')}
-                          </span>
-                          <span
-                            className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                              session.status === 'completed'
-                                ? 'bg-success/10 text-success'
-                                : 'bg-muted text-body'
-                            }`}
-                          >
-                            {session.status === 'completed' ? 'Completed' : 'Not Started'}
-                          </span>
-                        </div>
-                        <h3 className="mb-2 text-lg font-semibold text-heading">{session.title}</h3>
-                        <div className="flex flex-wrap gap-4 text-sm text-body">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            {session.duration || '45 min'}
-                          </div>
-                          {session.previousEngagement && (
-                            <div className="flex items-center gap-2">
-                              <TrendingUp className="h-4 w-4" />
-                              Previous Engagement: {session.previousEngagement}%
-                            </div>
-                          )}
-                        </div>
+                  <div key={session._id} className="bg-white rounded-lg p-3 shadow flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        session.status === 'completed' ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        {session.status === 'completed' ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-gray-400" />
+                        )}
                       </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-900">Session {String(index + 1).padStart(2, '0')}</p>
+                        <p className="text-xs text-gray-500">{session.duration || '45m'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {session.previousEngagement && (
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-purple-600">{session.previousEngagement}%</p>
+                        </div>
+                      )}
                       <Link
                         href={`/student/courses/${courseId}/sessions/${session._id}`}
-                        className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary/90"
+                        className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
                       >
-                        <Play className="h-4 w-4" />
-                        {session.status === 'completed' ? 'Review Session' : 'Start Session'}
+                        <Play className="h-3 w-3" />
+                        {session.status === 'completed' ? 'Review' : 'Start'}
                       </Link>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

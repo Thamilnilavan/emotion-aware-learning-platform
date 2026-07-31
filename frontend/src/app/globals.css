@@ -79,3 +79,27 @@ body {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(165, 86, 240, 0.5) rgba(255, 255, 255, 0.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(165, 86, 240, 0.5);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(165, 86, 240, 0.7);
+}

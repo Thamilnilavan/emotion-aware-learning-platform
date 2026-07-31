@@ -56,6 +56,9 @@ router.post('/:id/window', async (req, res) => {
     if (!session || session.userId.toString() !== req.user.id) {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
+    if (session.status !== 'active') {
+      return res.status(400).json({ success: false, message: 'Session is not active' });
+    }
 
     const window = {
       score: req.body.score,
@@ -86,56 +89,70 @@ router.post('/:id/end', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(404).json({ success: false, message: 'Invalid session ID' });
     }
-    
-    const session = await Session.findById(req.params.id);
-    if (!session || session.userId.toString() !== req.user.id) {
+
+    const session = await Session.findById(req.params.id).lean();
+    if (!session) {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }
+    if (session.userId.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
-    session.endTime = Date.now();
-    session.durationSeconds = Math.round(
-      (session.endTime - session.startTime) / 1000
-    );
+    const endTime = Date.now();
+    const durationSeconds = Math.round((endTime - session.startTime) / 1000);
 
-    const windows = session.windows;
+    const windows = session.windows || [];
+    let summary = {
+      averageScore: 0,
+      peakScore: 0,
+      lowestScore: 0,
+      peakFocusMinute: '0 min',
+      dominantEmotion: 'Neutral',
+      totalDistractions: 0,
+      totalInterventions: 0,
+      focusPercentage: 0,
+      emotionDistribution: {},
+    };
+
     if (windows.length > 0) {
       const scores = windows.map((w) => w.score);
-      session.summary.averageScore =
-        Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
-      session.summary.peakScore = Math.max(...scores);
-      session.summary.lowestScore = Math.min(...scores);
+      summary.averageScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
+      summary.peakScore = Math.max(...scores);
+      summary.lowestScore = Math.min(...scores);
 
-      const peakIdx = scores.indexOf(session.summary.peakScore);
-      session.summary.peakFocusMinute = `${peakIdx * 0.5} min`;
+      const peakIdx = scores.indexOf(summary.peakScore);
+      summary.peakFocusMinute = `${peakIdx * 0.5} min`;
 
       const emotionCounts = {};
       windows.forEach((w) => {
         emotionCounts[w.dominantEmotion] = (emotionCounts[w.dominantEmotion] || 0) + 1;
       });
-      session.summary.dominantEmotion = Object.entries(emotionCounts).sort(
-        (a, b) => b[1] - a[1]
-      )[0][0];
+      summary.dominantEmotion = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0][0];
+      summary.emotionDistribution = emotionCounts;
 
-      session.summary.totalDistractions = windows.filter(
+      summary.totalDistractions = windows.filter(
         (w) => w.state === 'DISTRACTED' || w.state === 'BREAK_NEEDED'
       ).length;
 
-      session.summary.totalInterventions = windows.filter(
-        (w) => w.interventionFired
-      ).length;
+      summary.totalInterventions = windows.filter((w) => w.interventionFired).length;
 
       const focused = windows.filter(
         (w) => w.state === 'ENGAGED' || w.state === 'MILD_DISTRACTION'
       ).length;
-      session.summary.focusPercentage = Math.round((focused / windows.length) * 100);
-
-      session.summary.emotionDistribution = emotionCounts;
+      summary.focusPercentage = Math.round((focused / windows.length) * 100);
     }
 
-    session.status = 'completed';
-    await session.save();
-    return res.json({ success: true, session });
+    await Session.findByIdAndUpdate(req.params.id, {
+      endTime,
+      durationSeconds,
+      status: 'completed',
+      summary,
+    });
+
+    console.log('Session ended successfully:', req.params.id);
+    return res.json({ success: true, session: { ...session, endTime, durationSeconds, status: 'completed', summary } });
   } catch (err) {
+    console.error('Session end error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 });

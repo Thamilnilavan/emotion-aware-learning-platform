@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
+import { Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { dashboardAPI } from '@/services/api/dashboard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -59,6 +60,23 @@ export function StudentDetail({ studentId }: StudentDetailProps) {
     }
   };
 
+  const exportData = () => {
+    const exportData = {
+      student: student,
+      sessions: sessions,
+      exportDate: new Date().toISOString(),
+      averageScore: avgScore,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `student_${studentId}_analytics_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Data exported successfully');
+  };
+
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
 
   const chartData = {
@@ -91,7 +109,12 @@ export function StudentDetail({ studentId }: StudentDetailProps) {
                 <p className="text-body">{student?.programme} · {student?.icbtNumber}</p>
               </div>
             </div>
-            <button onClick={() => setShowModal(true)} className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-semibold text-white">Send Feedback</button>
+            <div className="flex gap-3">
+              <button onClick={exportData} className="flex items-center gap-2 rounded-2xl border border-primary px-6 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5">
+                <Download className="h-4 w-4" /> Export
+              </button>
+              <button onClick={() => setShowModal(true)} className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-semibold text-white">Send Feedback</button>
+            </div>
           </div>
 
           <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">

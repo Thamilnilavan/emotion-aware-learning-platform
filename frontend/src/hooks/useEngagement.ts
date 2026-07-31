@@ -90,8 +90,14 @@ export function useEngagement(sessionId: string | null, enabled = true) {
             emotionValence: avgVal,
             interactionScore: avgInt,
           });
-        } catch {
-          // silently continue
+        } catch (error: any) {
+          // Stop sending window data if session is not active
+          if (error.response?.status === 400 || error.response?.status === 404) {
+            console.log('Session no longer active, stopping window updates');
+            if (windowInterval.current) clearInterval(windowInterval.current);
+            if (countdownInterval.current) clearInterval(countdownInterval.current);
+          }
+          // silently continue for other errors
         }
 
         setCurrentScore(score);

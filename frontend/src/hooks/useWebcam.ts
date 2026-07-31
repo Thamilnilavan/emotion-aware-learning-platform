@@ -5,7 +5,7 @@ import axios from 'axios';
 import aiService from '@/services/api/ai';
 import type { FrameResult } from '@/types';
 
-const FRAME_RATE = parseInt(process.env.NEXT_PUBLIC_FRAME_RATE || '2', 10);
+const FRAME_RATE = parseInt(process.env.NEXT_PUBLIC_FRAME_RATE || '1', 10);
 
 export function useWebcam() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -86,7 +86,9 @@ export function useWebcam() {
                   const base64data = reader.result as string;
                   const image = base64data.split(',')[1]; // Remove data URL prefix
                   
+                  console.log('Sending frame to AI service...');
                   const result = await aiService.analyzeFrame(image);
+                  console.log('AI service response:', result);
 
                   onFrameResult({
                     emotion: result.emotion || 'Neutral',
@@ -103,7 +105,8 @@ export function useWebcam() {
                   });
                 };
                 reader.readAsDataURL(blob);
-              } catch {
+              } catch (error) {
+                console.error('AI frame analysis error:', error);
                 onFrameResult({
                   emotion: 'Neutral',
                   confidence: 0.5,
