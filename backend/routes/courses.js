@@ -1,5 +1,8 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const Course = require('../models/Course');
 const User = require('../models/User');
 const { verifyToken } = require('../middleware/auth');
@@ -7,12 +10,61 @@ const { requireRole } = require('../middleware/roleCheck');
 
 const router = express.Router();
 
+// Configure multer for video uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/videos';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /mp4|mov|avi|mkv|webm/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only video files are allowed'));
+    }
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const courses = await Course.find({ isActive: true })
       .populate('teacherId', 'name')
       .lean();
     return res.json({ success: true, courses });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Video upload endpoint
+router.post('/upload-video', verifyToken, requireRole('teacher', 'admin'), upload.single('video'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No video file uploaded' });
+    }
+
+    const videoUrl = `/uploads/videos/${req.file.filename}`;
+    return res.json({ 
+      success: true, 
+      videoUrl,
+      filename: req.file.filename,
+      size: req.file.size
+    });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

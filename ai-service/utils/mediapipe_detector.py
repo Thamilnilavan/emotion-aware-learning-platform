@@ -8,6 +8,8 @@ import numpy as np
 from config import Config
 
 
+import threading
+
 class FaceDetector:
     """MediaPipe Face Detection for extracting faces from images"""
     
@@ -19,6 +21,7 @@ class FaceDetector:
             min_detection_confidence=Config.MEDIAPIPE_MIN_DETECTION_CONFIDENCE
         )
         self.mp_drawing = mp.solutions.drawing_utils
+        self._lock = threading.Lock()
     
     def detect_faces(self, image):
         """
@@ -41,7 +44,8 @@ class FaceDetector:
             image_rgb = image
         
         # Detect faces
-        results = self.face_detection.process(image_rgb)
+        with self._lock:
+            results = self.face_detection.process(image_rgb)
         
         faces = []
         if results.detections:

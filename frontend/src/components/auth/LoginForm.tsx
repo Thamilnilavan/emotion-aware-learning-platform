@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Brain } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { authAPI } from '@/services/api/auth';
@@ -44,30 +44,34 @@ export function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen">
-      <div className="hidden w-1/2 flex-col justify-center bg-gradient-to-br from-[#00838F] to-primary p-12 text-white lg:flex">
-        <h1 className="mb-4 text-4xl font-extrabold">EmoLearn</h1>
-        <p className="text-xl text-white/90">Learn smarter with AI</p>
-        <p className="mt-6 max-w-md text-white/70">
-          Real-time emotion detection and adaptive interventions designed to improve your learning outcomes.
-        </p>
+    <div className="relative flex min-h-screen items-center justify-center bg-[#050505] px-6 py-12 text-white">
+      {/* Sleek Mesh Background */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-[100%] bg-primary/20 blur-[150px] opacity-70 mix-blend-screen" />
+        <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-[100%] bg-primary/15 blur-[120px] opacity-60 mix-blend-screen" />
+        <div className="absolute bottom-[-20%] left-[10%] w-[40%] h-[40%] rounded-[100%] bg-blue-500/10 blur-[120px] opacity-40 mix-blend-screen" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
       </div>
 
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16">
-        <div className="mx-auto w-full max-w-md">
-          <h2 className="mb-2 text-3xl font-bold text-heading">Welcome back</h2>
-          <p className="mb-8 text-body">Sign in to continue learning</p>
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-[#0a0a0a]/80 p-8 shadow-2xl backdrop-blur-3xl sm:p-12">
+        <div className="mb-8 text-center">
+          <Link href="/" className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-lg">
+             <Brain className="h-6 w-6 text-white" />
+          </Link>
+          <h2 className="mb-2 text-3xl font-bold text-white">Welcome back</h2>
+          <p className="text-white/50">Sign in to continue learning</p>
+        </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-heading">Email</label>
+              <label className="mb-1.5 block text-sm font-medium text-white/80">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-body" />
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
                 <input
                   {...register('email')}
                   type="email"
                   className={cn(
-                    'w-full rounded-2xl border bg-white py-3 pl-11 pr-4 text-heading outline-none focus:border-primary focus:ring-2 focus:ring-primary/20',
+                    'w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all',
                     errors.email && 'border-danger'
                   )}
                   placeholder="you@example.com"
@@ -77,14 +81,14 @@ export function LoginForm() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-heading">Password</label>
+              <label className="mb-1.5 block text-sm font-medium text-white/80">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-body" />
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
                 <input
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
                   className={cn(
-                    'w-full rounded-2xl border bg-white py-3 pl-11 pr-12 text-heading outline-none focus:border-primary focus:ring-2 focus:ring-primary/20',
+                    'w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-12 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all',
                     errors.password && 'border-danger'
                   )}
                   placeholder="••••••••"
@@ -92,7 +96,7 @@ export function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-body"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -109,11 +113,10 @@ export function LoginForm() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-body">
+          <p className="mt-6 text-center text-sm text-white/50">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="font-semibold text-primary hover:underline">Register</Link>
+            <Link href="/register" className="font-semibold text-primary hover:text-primary-hover transition-colors">Register</Link>
           </p>
-        </div>
       </div>
     </div>
   );

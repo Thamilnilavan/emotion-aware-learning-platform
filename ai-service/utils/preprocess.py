@@ -30,10 +30,7 @@ class ImagePreprocessor:
         # Convert to numpy array if needed
         if isinstance(image, str):
             # Assume base64 string
-            import base64
-            import io
-            image_data = base64.b64decode(image)
-            image = Image.open(io.BytesIO(image_data))
+            image = self.decode_base64_image(image)
             image = np.array(image)
         elif isinstance(image, Image.Image):
             image = np.array(image)

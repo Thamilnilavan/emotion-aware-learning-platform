@@ -13,7 +13,7 @@ router.use(verifyToken, requireRole('teacher', 'admin'));
 
 const getTeacherStudentIds = async (teacherId) => {
   const courses = await Course.find({ teacherId }).select('enrolledStudents');
-  return [...new Set(courses.flatMap((c) => c.enrolledStudents.map(String)))];
+  return [...new Set(courses.flatMap((c) => (c.enrolledStudents || []).map(String)))];
 };
 
 const isStudentInTeacherCourses = async (teacherId, studentId) => {

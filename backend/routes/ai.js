@@ -20,9 +20,11 @@ router.post('/analyze-frame', async (req, res) => {
       });
     }
 
-    // Call Flask prediction API
+    // Call Flask prediction API with timeout
     const response = await axios.post(`${AI_GATEWAY_URL}/predict`, {
       image: image
+    }, {
+      timeout: 5000 // 5 second timeout
     });
 
     // Map Flask response to expected format
@@ -64,7 +66,7 @@ router.post('/analyze-frame', async (req, res) => {
     });
   } catch (error) {
     console.error('AI frame analysis error:', error.message);
-    // Return simulated data when AI service is unavailable
+    // Return simulated data when AI service is unavailable or times out
     const emotions = ['happy', 'neutral', 'focused', 'confused', 'bored'];
     const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
     const randomAttention = Math.floor(Math.random() * 40) + 60; // 60-100

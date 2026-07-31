@@ -13,6 +13,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const teacherRoutes = require('./routes/teacher');
 const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
+const assistantRoutes = require('./routes/assistant');
 
 const app = express();
 
@@ -40,6 +41,15 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
+app.use(morgan('dev'));
+app.use(express.json({ limit: '5mb' }));
+
+// Serve static files for uploaded videos
+app.use('/uploads', express.static('uploads'));
+
+// High frequency routes that should bypass global rate limiting
+app.use('/api/ai', aiRoutes);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -47,16 +57,13 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use(morgan('dev'));
-app.use(express.json({ limit: '5mb' }));
-
 app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

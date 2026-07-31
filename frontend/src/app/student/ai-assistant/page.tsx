@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bot, Send, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import { assistantAPI } from '@/services/api/assistant';
 
 function AIAssistantContent() {
   const [message, setMessage] = useState('');
@@ -14,28 +15,39 @@ function AIAssistantContent() {
     { role: 'assistant', content: 'Hi! I\'m your AI Study Assistant. I can help you with study tips, revision suggestions, and learning recommendations. How can I help you today?' }
   ]);
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSend = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || loading) return;
 
     const userMessage = message.trim();
     setMessage('');
-    setMessages([...messages, { role: 'user', content: userMessage }]);
+    
+    const updatedMessages = [...messages, { role: 'user', content: userMessage }];
+    setMessages(updatedMessages);
     setLoading(true);
 
-    // Simulate AI response (replace with actual AI API call)
-    setTimeout(() => {
-      const responses = [
-        'Based on your recent sessions, I recommend focusing on time management techniques to improve your engagement.',
-        'Try breaking your study sessions into 25-minute focused intervals with 5-minute breaks.',
-        'Your emotion patterns suggest you learn best in the morning. Consider scheduling important topics then.',
-        'I noticed you struggle with attention during long sessions. Try shorter, more frequent study periods.',
-        'Great question! Based on your progress, you should revise the fundamentals before moving to advanced topics.',
-      ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      setMessages(prev => [...prev, { role: 'assistant', content: randomResponse }]);
+    try {
+      const res = await assistantAPI.chat(updatedMessages);
+      if (res.data.success) {
+        setMessages(prev => [...prev, { role: 'assistant', content: res.data.response }]);
+      } else {
+        toast.error('Failed to get response from AI');
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast.error('Could not connect to the AI assistant.');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const quickQuestions = [
@@ -74,7 +86,7 @@ function AIAssistantContent() {
                         : 'bg-muted text-heading'
                     }`}
                   >
-                    <p className="text-sm">{msg.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   </div>
                 </div>
               ))}
@@ -86,6 +98,7 @@ function AIAssistantContent() {
                   </div>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}

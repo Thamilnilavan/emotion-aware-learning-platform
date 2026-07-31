@@ -47,6 +47,11 @@ router.post('/start', async (req, res) => {
 
 router.post('/:id/window', async (req, res) => {
   try {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Invalid session ID' });
+    }
+    
     const session = await Session.findById(req.params.id);
     if (!session || session.userId.toString() !== req.user.id) {
       return res.status(404).json({ success: false, message: 'Session not found' });
@@ -77,6 +82,11 @@ router.post('/:id/window', async (req, res) => {
 
 router.post('/:id/end', async (req, res) => {
   try {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: 'Invalid session ID' });
+    }
+    
     const session = await Session.findById(req.params.id);
     if (!session || session.userId.toString() !== req.user.id) {
       return res.status(404).json({ success: false, message: 'Session not found' });

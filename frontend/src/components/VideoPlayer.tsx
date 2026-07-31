@@ -22,6 +22,16 @@ interface VideoPlayerProps {
   className?: string;
 }
 
+// Get full URL for local videos
+const getFullVideoUrl = (url: string) => {
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  // Prepend backend URL for local video files
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  return `${backendUrl}${url}`;
+};
+
 export function VideoPlayer({
   url,
   contentType,
@@ -54,6 +64,7 @@ export function VideoPlayer({
   };
 
   const youtubeId = contentType === 'youtube' ? getYouTubeId(url) : null;
+  const fullVideoUrl = contentType === 'video' ? getFullVideoUrl(url) : url;
 
   // Load YouTube IFrame API
   useEffect(() => {
@@ -355,10 +366,10 @@ export function VideoPlayer({
       <div className="relative aspect-video">
         {contentType === 'youtube' && youtubeId ? (
           <div ref={youtubePlayerRef} className="w-full h-full" />
-        ) : contentType === 'video' && url ? (
+        ) : contentType === 'video' && fullVideoUrl ? (
           <video
             ref={videoRef}
-            src={url}
+            src={fullVideoUrl}
             className="w-full h-full object-contain"
             controls={false}
           />

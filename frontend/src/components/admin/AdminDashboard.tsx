@@ -18,9 +18,10 @@ export function AdminDashboard() {
       adminAPI.getDashboard(),
       adminAPI.getSystemHealth(),
     ]).then(([dashboard, system]) => {
-      setDashboardData(dashboard.data);
-      setSystemHealth(system.data);
-    }).catch(() => {
+      setDashboardData(dashboard);
+      setSystemHealth(system);
+    }).catch((error) => {
+      console.error("Admin dashboard error:", error);
       toast.error('Failed to load dashboard data');
     }).finally(() => setLoading(false));
   }, []);
@@ -28,7 +29,7 @@ export function AdminDashboard() {
   useEffect(() => {
     loadData();
     const interval = setInterval(() => {
-      adminAPI.getSystemHealth().then((res) => setSystemHealth(res.data)).catch(() => {});
+      adminAPI.getSystemHealth().then((res) => setSystemHealth(res)).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
   }, [loadData]);

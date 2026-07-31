@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
 import os
+os.environ['TF_USE_LEGACY_KERAS'] = '1'
 import logging
 
 # Import configuration and utilities
@@ -183,11 +184,37 @@ def batch_predict():
         })
         
     except Exception as e:
-        logger.error(f"Error in batch_predict endpoint: {e}")
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
+
+from engagement_scorer import EngagementScorer
+engagement_scorer = EngagementScorer()
+
+@app.route('/ai/score', methods=['POST'])
+def calculate_engagement_score():
+    """Calculate engagement score for a session window"""
+    try:
+        data = request.json
+        if not data or 'frames' not in data:
+            return jsonify({
+                "success": False,
+                "error": "No frames provided"
+            }), 400
+            
+        frames = data['frames']
+        result = engagement_scorer.aggregate_window(frames)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error in /ai/score endpoint: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 @app.errorhandler(404)
 def not_found(error):

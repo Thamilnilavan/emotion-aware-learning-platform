@@ -23,10 +23,13 @@ export function TeacherDashboard() {
       teacherAPI.getStudents()
     ])
       .then(([dashRes, studentsRes]) => {
-        setDashboardData(dashRes.data);
-        setStudents(studentsRes.data.students || []);
+        setDashboardData(dashRes);
+        setStudents(studentsRes.students || []);
       })
-      .catch(() => toast.error('Failed to load dashboard data'))
+      .catch((error) => {
+        console.error("Dashboard error:", error);
+        toast.error('Failed to load dashboard data');
+      })
       .finally(() => setLoading(false));
   }, []);
 

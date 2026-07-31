@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Plus, Trash2, Youtube, FileText, Link as LinkIcon, Video } from 'lucide-react';
+import { Plus, Trash2, Youtube, FileText, Link as LinkIcon, Video, Upload } from 'lucide-react';
 import { coursesAPI } from '@/services/api/dashboard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import type { Course } from '@/types';
+import api from '@/lib/axios';
 
 export function CourseManager() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -24,6 +25,7 @@ export function CourseManager() {
     url: '',
     durationMinutes: 0,
   });
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const loadCourses = () => {
     coursesAPI.getMy().then((res) => setCourses(res.data.courses || [])).finally(() => setLoading(false));
@@ -56,8 +58,16 @@ export function CourseManager() {
   };
 
   const addContent = () => {
-    if (!contentForm.title.trim() || !contentForm.url.trim()) {
-      toast.error('Title and URL are required');
+    if (!contentForm.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+    if (contentForm.contentType === 'video' && !contentForm.url.trim()) {
+      toast.error('Please upload a video file');
+      return;
+    }
+    if (contentForm.contentType !== 'video' && !contentForm.url.trim()) {
+      toast.error('URL is required');
       return;
     }
     setForm({
@@ -72,6 +82,27 @@ export function CourseManager() {
     });
     setContentForm({ contentType: 'video', title: '', url: '', durationMinutes: 0 });
     setShowContentForm(false);
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingVideo(true);
+    const formData = new FormData();
+    formData.append('video', file);
+
+    try {
+      const response = await api.post('/courses/upload-video', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setContentForm({ ...contentForm, url: response.data.videoUrl });
+      toast.success('Video uploaded successfully');
+    } catch (error) {
+      toast.error('Failed to upload video');
+    } finally {
+      setUploadingVideo(false);
+    }
   };
 
   const removeContent = (index: number) => {
@@ -128,7 +159,7 @@ export function CourseManager() {
                       onChange={(e) => setContentForm({ ...contentForm, contentType: e.target.value })}
                       className="w-full rounded-xl border px-4 py-2"
                     >
-                      <option value="video">Video File</option>
+                      <option value="video">Local Video File</option>
                       <option value="youtube">YouTube Video</option>
                       <option value="document">Document</option>
                       <option value="link">External Link</option>
@@ -139,12 +170,34 @@ export function CourseManager() {
                       placeholder="Content title"
                       className="w-full rounded-xl border px-4 py-2"
                     />
-                    <input
-                      value={contentForm.url}
-                      onChange={(e) => setContentForm({ ...contentForm, url: e.target.value })}
-                      placeholder={contentForm.contentType === 'youtube' ? 'YouTube video URL (e.g., https://youtube.com/watch?v=...)' : 'Content URL'}
-                      className="w-full rounded-xl border px-4 py-2"
-                    />
+                    {contentForm.contentType === 'video' ? (
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 cursor-pointer hover:bg-muted/50">
+                          <Upload className="h-4 w-4 text-primary" />
+                          <span className="text-sm text-body">
+                            {contentForm.url ? 'Video uploaded' : 'Click to upload video file'}
+                          </span>
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={handleVideoUpload}
+                            className="hidden"
+                            disabled={uploadingVideo}
+                          />
+                        </label>
+                        {uploadingVideo && <p className="text-xs text-primary">Uploading...</p>}
+                        {contentForm.url && (
+                          <p className="text-xs text-body truncate">{contentForm.url}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        value={contentForm.url}
+                        onChange={(e) => setContentForm({ ...contentForm, url: e.target.value })}
+                        placeholder={contentForm.contentType === 'youtube' ? 'YouTube video URL (e.g., https://youtube.com/watch?v=...)' : 'Content URL'}
+                        className="w-full rounded-xl border px-4 py-2"
+                      />
+                    )}
                     <input
                       type="number"
                       value={contentForm.durationMinutes || ''}

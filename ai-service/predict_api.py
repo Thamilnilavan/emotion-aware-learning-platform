@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuration
-MODEL_PATH = 'model/emotion_model.h5'
+MODEL_PATH = 'model/final_emotion_model.keras'
 IMG_SIZE = (224, 224)
 EMOTIONS = ['happy', 'sad', 'angry', 'neutral', 'surprised', 'fearful', 'disgusted']
 

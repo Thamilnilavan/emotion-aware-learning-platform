@@ -25,11 +25,14 @@ export function StudentDashboard() {
       studentAPI.getAchievements()
     ])
       .then(([dashRes, progressRes, achievementsRes]) => {
-        setDashboardData(dashRes.data);
-        setProgressData(progressRes.data);
-        setAchievementsData(achievementsRes.data);
+        setDashboardData(dashRes);
+        setProgressData(progressRes);
+        setAchievementsData(achievementsRes);
       })
-      .catch(() => toast.error('Failed to load dashboard data'))
+      .catch((error) => {
+        console.error("Dashboard error:", error);
+        toast.error('Failed to load dashboard data');
+      })
       .finally(() => setLoading(false));
   }, []);
 

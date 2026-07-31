@@ -5,7 +5,7 @@ import axios from 'axios';
 import aiService from '@/services/api/ai';
 import type { FrameResult } from '@/types';
 
-const FRAME_RATE = parseInt(process.env.NEXT_PUBLIC_FRAME_RATE || '10', 10);
+const FRAME_RATE = parseInt(process.env.NEXT_PUBLIC_FRAME_RATE || '2', 10);
 
 export function useWebcam() {
   const [isCapturing, setIsCapturing] = useState(false);
