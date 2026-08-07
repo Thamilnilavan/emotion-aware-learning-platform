@@ -11,7 +11,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'emotion-ai-secret-key-2026')
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 5000))
+    PORT = int(os.getenv('PORT', 5001))
     
     # Model Configuration
     MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model', 'final_emotion_model.keras')
