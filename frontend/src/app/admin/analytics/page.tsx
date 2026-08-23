@@ -1,21 +1,35 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, Users, Activity } from 'lucide-react';
+import { TrendingUp, Users, Activity, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import adminAPI from '@/services/api/admin';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   const [analyticsData, setAnalyticsData] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('7d');
 
+  const exportAnalytics = async () => {
+    try {
+      const response = await adminAPI.exportData();
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'anonymised_sessions.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Analytics export downloaded');
+    } catch { toast.error('Failed to export analytics'); }
+  };
+
   useEffect(() => {
     adminAPI.getAnalytics(timeRange)
-      .then((res) => setAnalyticsData(res.data))
+      .then(setAnalyticsData)
       .catch(() => toast.error('Failed to load analytics'))
       .finally(() => setLoading(false));
   }, [timeRange]);
@@ -32,7 +46,7 @@ export default function AnalyticsPage() {
         <main className="flex-1 p-4 md:p-8">
           <div className="mb-8 flex items-center justify-between">
             <h1 className="text-2xl font-extrabold text-heading">Analytics</h1>
-            <select 
+            <div className="flex gap-2"><button onClick={exportAnalytics} className="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold text-heading"><Download className="h-4 w-4"/>Export CSV</button><select 
               value={timeRange} 
               onChange={(e) => setTimeRange(e.target.value)}
               className="rounded-xl border px-4 py-2 text-sm"
@@ -40,7 +54,7 @@ export default function AnalyticsPage() {
               <option value="7d">Last 7 Days</option>
               <option value="30d">Last 30 Days</option>
               <option value="90d">Last 90 Days</option>
-            </select>
+            </select></div>
           </div>
 
           {/* Summary Cards */}
@@ -114,4 +128,8 @@ export default function AnalyticsPage() {
       </div>
     </div>
   );
+}
+
+export default function AnalyticsPage() {
+  return <ProtectedRoute role="admin"><AnalyticsContent /></ProtectedRoute>;
 }

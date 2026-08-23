@@ -4,7 +4,7 @@ Image preprocessing for emotion recognition model
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from config import Config
 from .mediapipe_detector import FaceDetector
 
@@ -33,7 +33,15 @@ class ImagePreprocessor:
             image = self.decode_base64_image(image)
             image = np.array(image)
         elif isinstance(image, Image.Image):
-            image = np.array(image)
+            image = np.array(ImageOps.exif_transpose(image).convert('RGB'))
+
+        if not isinstance(image, np.ndarray) or image.size == 0:
+            return None, False
+
+        if image.ndim == 3 and image.shape[2] == 4:
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2RGB)
+        elif image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         
         # Detect faces
         faces = self.face_detector.detect_faces(image)
@@ -46,19 +54,13 @@ class ImagePreprocessor:
         bbox = face['bbox']
         
         # Extract face region
-        face_image = self.face_detector.extract_face(image, bbox, padding=30)
+        face_image = self.face_detector.extract_face(image, bbox, padding_ratio=0.18)
+
+        if face_image.size == 0:
+            return None, False
         
         # Resize to target size
         face_image = cv2.resize(face_image, self.target_size)
-        
-        # Convert to RGB if needed
-        if len(face_image.shape) == 3 and face_image.shape[2] == 4:
-            face_image = cv2.cvtColor(face_image, cv2.COLOR_RGBA2RGB)
-        elif len(face_image.shape) == 2:
-            face_image = cv2.cvtColor(face_image, cv2.COLOR_GRAY2RGB)
-        elif len(face_image.shape) == 3 and face_image.shape[2] == 3:
-            # Check if BGR, convert to RGB
-            face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
         
         # Normalize to [0, 1]
         face_image = face_image.astype(np.float32) / 255.0
@@ -111,7 +113,7 @@ class ImagePreprocessor:
         
         # Decode
         image_data = base64.b64decode(base64_string)
-        image = Image.open(io.BytesIO(image_data))
+        image = ImageOps.exif_transpose(Image.open(io.BytesIO(image_data))).convert('RGB')
         
         return image
     

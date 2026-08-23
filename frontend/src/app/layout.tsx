@@ -4,13 +4,13 @@ import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'EmoLearn — AI-Powered Adaptive Learning',
-  description: 'Real-time emotion detection, attention tracking, and adaptive interventions for better online learning outcomes.',
+  title: 'Eduvo — Learning That Evolves With You',
+  description: 'An intelligent adaptive learning platform designed to understand learner behaviour and evolve the learning experience in real time.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <Providers>
           {children}

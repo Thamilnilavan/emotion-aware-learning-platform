@@ -1,8 +1,5 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
 
 # Environment variables
 .env
@@ -13,6 +10,7 @@ pnpm-lock.yaml
 
 # Next.js
 .next/
+.next-dev/
 out/
 build/
 dist/

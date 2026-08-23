@@ -23,7 +23,21 @@ class EmotionPredictor:
         try:
             if os.path.exists(Config.MODEL_PATH):
                 print(f"Loading model from {Config.MODEL_PATH}")
-                self.model = tf.keras.models.load_model(Config.MODEL_PATH)
+                # Inference does not need the training optimizer/loss state and
+                # skipping it avoids checkpoint compatibility issues.
+                self.model = tf.keras.models.load_model(
+                    Config.MODEL_PATH, compile=False
+                )
+                expected_input = (None, *Config.MODEL_INPUT_SIZE, 3)
+                if tuple(self.model.input_shape) != expected_input:
+                    raise ValueError(
+                        f'Unexpected model input {self.model.input_shape}; expected {expected_input}'
+                    )
+                if int(self.model.output_shape[-1]) != len(EMOTION_LABELS):
+                    raise ValueError(
+                        f'Unexpected model output {self.model.output_shape}; '
+                        f'expected {len(EMOTION_LABELS)} classes'
+                    )
                 self.model_loaded = True
                 print("Model loaded successfully")
             else:
@@ -52,8 +66,12 @@ class EmotionPredictor:
             }
         
         try:
-            # Make prediction
-            predictions = self.model.predict(preprocessed_image, verbose=0)
+            # Match the model-card evaluation: average the original face and a
+            # horizontal flip. This is more stable for asymmetric webcam poses.
+            flipped_image = np.flip(preprocessed_image, axis=2).copy()
+            tta_batch = np.concatenate([preprocessed_image, flipped_image], axis=0)
+            tta_predictions = self.model.predict(tta_batch, verbose=0)
+            predictions = np.mean(tta_predictions, axis=0, keepdims=True)
             
             # Get predicted class
             class_id = np.argmax(predictions[0])
@@ -119,8 +137,13 @@ class EmotionPredictor:
             # Stack images for batch prediction
             batch = np.vstack(valid_images)
             
-            # Make predictions
-            predictions = self.model.predict(batch, verbose=0)
+            # Horizontal-flip test-time averaging, as used in model evaluation.
+            augmented_batch = np.concatenate([batch, np.flip(batch, axis=2)], axis=0)
+            augmented_predictions = self.model.predict(augmented_batch, verbose=0)
+            batch_size = len(batch)
+            predictions = (
+                augmented_predictions[:batch_size] + augmented_predictions[batch_size:]
+            ) / 2.0
             
             results = []
             valid_idx = 0

@@ -22,10 +22,23 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (typeof window !== 'undefined' && error.response?.status === 401) {
+    const requestUrl = String(error.config?.url || '');
+    const isCredentialRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register');
+    const hadAccessToken = Boolean(error.config?.headers?.Authorization);
+
+    // Keep invalid-login responses on the login form. Redirect only when a
+    // previously authenticated request reports an expired or invalid token.
+    if (
+      typeof window !== 'undefined' &&
+      error.response?.status === 401 &&
+      hadAccessToken &&
+      !isCredentialRequest
+    ) {
       localStorage.removeItem('emolearn_token');
       localStorage.removeItem('emolearn_user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login');
+      }
       return Promise.reject(error);
     }
     if (!error.response && typeof window !== 'undefined') {

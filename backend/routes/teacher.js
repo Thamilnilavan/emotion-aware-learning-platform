@@ -16,6 +16,9 @@ const getTeacherStudentIds = async (teacherId) => {
   return [...new Set(courses.flatMap((c) => (c.enrolledStudents || []).map(String)))];
 };
 
+const getTeacherCourseIds = async (teacherId) =>
+  (await Course.find({ teacherId }).select('_id').lean()).map((course) => course._id);
+
 const isStudentInTeacherCourses = async (teacherId, studentId) => {
   const courses = await Course.find({ teacherId, enrolledStudents: studentId });
   return courses.length > 0;
@@ -24,6 +27,7 @@ const isStudentInTeacherCourses = async (teacherId, studentId) => {
 router.get('/students', async (req, res) => {
   try {
     const studentIds = await getTeacherStudentIds(req.user.id);
+    const courseIds = await getTeacherCourseIds(req.user.id);
     const students = [];
 
     for (const sid of studentIds) {
@@ -32,6 +36,7 @@ router.get('/students', async (req, res) => {
 
       const latestSession = await Session.findOne({
         userId: sid,
+        courseId: { $in: courseIds },
         status: 'completed',
       })
         .sort({ endTime: -1 })
@@ -54,8 +59,10 @@ router.get('/students/:studentId/sessions', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
+    const courseIds = await getTeacherCourseIds(req.user.id);
     const sessions = await Session.find({
       userId: req.params.studentId,
+      ...(req.user.role === 'admin' ? {} : { courseId: { $in: courseIds } }),
       status: 'completed',
     })
       .sort({ endTime: -1 })
@@ -110,11 +117,13 @@ router.post(
 router.get('/earlywarnings', async (req, res) => {
   try {
     const studentIds = await getTeacherStudentIds(req.user.id);
+    const courseIds = await getTeacherCourseIds(req.user.id);
     const warnings = [];
 
     for (const sid of studentIds) {
       const sessions = await Session.find({
         userId: sid,
+        courseId: { $in: courseIds },
         status: 'completed',
       })
         .sort({ endTime: -1 })
@@ -155,9 +164,12 @@ router.put('/course/:courseId/thresholds', async (req, res) => {
     }
 
     if (req.body.engagementThreshold !== undefined) {
-      course.settings.engagementThreshold = req.body.engagementThreshold;
+      const threshold = Number(req.body.engagementThreshold);
+      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 100) return res.status(400).json({ success: false, message: 'Engagement threshold must be between 0 and 100' });
+      course.settings.engagementThreshold = threshold;
     }
     if (req.body.alertFrequency !== undefined) {
+      if (!['low', 'medium', 'high'].includes(req.body.alertFrequency)) return res.status(400).json({ success: false, message: 'Invalid alert frequency' });
       course.settings.alertFrequency = req.body.alertFrequency;
     }
 
@@ -173,16 +185,19 @@ router.get('/dashboard', async (req, res) => {
   try {
     const studentIds = await getTeacherStudentIds(req.user.id);
     const courses = await Course.find({ teacherId: req.user.id }).lean();
+    const courseIds = courses.map((course) => course._id);
     
     // Get active sessions
     const activeSessions = await Session.find({
       userId: { $in: studentIds },
+      courseId: { $in: courseIds },
       status: 'active'
     }).countDocuments();
     
     // Calculate average engagement
     const completedSessions = await Session.find({
       userId: { $in: studentIds },
+      courseId: { $in: courseIds },
       status: 'completed'
     }).lean();
     
@@ -198,10 +213,13 @@ router.get('/dashboard', async (req, res) => {
     });
     
     // At-risk students (engagement < 40)
-    const atRiskCount = completedSessions.filter(s => (s.summary?.averageScore || 0) < 40).length;
+    const atRiskStudentIds = new Set(completedSessions
+      .filter((session) => (session.summary?.averageScore || 0) < 40)
+      .map((session) => String(session.userId)));
+    const atRiskCount = atRiskStudentIds.size;
     
     // AI insights
-    const lowEngagementStudents = completedSessions.filter(s => (s.summary?.averageScore || 0) < 40).length;
+    const lowEngagementStudents = atRiskCount;
     const aiInsight = lowEngagementStudents > 0 
       ? `${lowEngagementStudents} students show continuously low engagement this week`
       : 'All students showing good engagement levels';
@@ -233,6 +251,7 @@ router.get('/class-overview', async (req, res) => {
       
       const completedSessions = await Session.find({
         userId: { $in: studentIds },
+        courseId: course._id,
         status: 'completed'
       }).lean();
       
@@ -242,6 +261,7 @@ router.get('/class-overview', async (req, res) => {
       
       const activeSessions = await Session.find({
         userId: { $in: studentIds },
+        courseId: course._id,
         status: 'active'
       }).countDocuments();
       
@@ -268,8 +288,10 @@ router.get('/students/:studentId/analytics', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
+    const courseIds = await getTeacherCourseIds(req.user.id);
     const sessions = await Session.find({
       userId: req.params.studentId,
+      ...(req.user.role === 'admin' ? {} : { courseId: { $in: courseIds } }),
       status: 'completed'
     })
       .sort({ endTime: -1 })
@@ -326,17 +348,18 @@ router.get('/students/:studentId/analytics', async (req, res) => {
 router.get('/live-sessions', async (req, res) => {
   try {
     const studentIds = await getTeacherStudentIds(req.user.id);
+    const courseIds = await getTeacherCourseIds(req.user.id);
     
     const activeSessions = await Session.find({
       userId: { $in: studentIds },
+      courseId: { $in: courseIds },
       status: 'active'
     })
       .populate('userId', 'name email')
+      .populate('courseId', 'title')
       .lean();
 
     const liveStudents = await Promise.all(activeSessions.map(async (session) => {
-      const student = await User.findById(session.userId).select('name email');
-      
       // Get latest window data for engagement/emotion status
       const latestWindow = session.windows && session.windows.length > 0 
         ? session.windows[session.windows.length - 1]
@@ -344,11 +367,14 @@ router.get('/live-sessions', async (req, res) => {
 
       return {
         sessionId: session._id,
-        student: student,
+        student: session.userId,
+        course: session.courseId,
         engagement: latestWindow?.score || 0,
         emotion: latestWindow?.dominantEmotion || 'Neutral',
-        attention: latestWindow?.attentionScore > 0.5 ? 'Focused' : 'Distracted',
-        startTime: session.startTime
+        attention: latestWindow ? (latestWindow.attentionScore > 0.5 ? 'Focused' : 'Distracted') : 'Waiting for data',
+        progress: session.overallProgress || 0,
+        startTime: session.startTime,
+        lastUpdated: latestWindow?.timestamp || session.startTime,
       };
     }));
 
@@ -362,11 +388,13 @@ router.get('/live-sessions', async (req, res) => {
 router.get('/at-risk', async (req, res) => {
   try {
     const studentIds = await getTeacherStudentIds(req.user.id);
+    const courseIds = await getTeacherCourseIds(req.user.id);
     const atRiskStudents = [];
 
     for (const sid of studentIds) {
       const sessions = await Session.find({
         userId: sid,
+        courseId: { $in: courseIds },
         status: 'completed'
       })
         .sort({ endTime: -1 })
@@ -412,9 +440,11 @@ router.get('/at-risk', async (req, res) => {
 router.get('/emotions', async (req, res) => {
   try {
     const studentIds = await getTeacherStudentIds(req.user.id);
+    const courseIds = await getTeacherCourseIds(req.user.id);
     
     const sessions = await Session.find({
       userId: { $in: studentIds },
+      courseId: { $in: courseIds },
       status: 'completed'
     }).lean();
 
@@ -457,9 +487,11 @@ router.get('/engagement-reports', async (req, res) => {
     startDate.setDate(startDate.getDate() - days);
 
     const studentIds = await getTeacherStudentIds(req.user.id);
+    const courseIds = await getTeacherCourseIds(req.user.id);
     
     const sessions = await Session.find({
       userId: { $in: studentIds },
+      courseId: { $in: courseIds },
       status: 'completed',
       endTime: { $gte: startDate }
     }).lean();
@@ -504,7 +536,7 @@ router.get('/notifications', async (req, res) => {
   try {
     const notifications = await Notification.find({
       recipientId: req.user.id,
-      type: { $in: ['at_risk_alert', 'low_engagement', 'system_update'] }
+      type: { $in: ['warning', 'system', 'feedback'] }
     })
       .sort({ createdAt: -1 })
       .limit(20)

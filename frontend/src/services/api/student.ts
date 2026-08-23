@@ -27,7 +27,7 @@ export const studentAPI = {
 
   // Sessions
   async getSessions() {
-    const response = await api.get('/sessions');
+    const response = await api.get('/sessions/my');
     return response.data;
   },
 
@@ -37,13 +37,13 @@ export const studentAPI = {
   },
 
   // Courses
-  async getEnrolledCourses() {
-    const response = await api.get('/courses/my');
+  async getEnrolledCourses(page = 1, limit = 20) {
+    const response = await api.get('/courses/my', { params: { page, limit } });
     return response.data;
   },
 
-  async getAvailableCourses() {
-    const response = await api.get('/courses');
+  async getAvailableCourses(page = 1, limit = 20) {
+    const response = await api.get('/courses', { params: { page, limit } });
     return response.data;
   },
 

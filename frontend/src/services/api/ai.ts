@@ -4,14 +4,19 @@ import api from '@/lib/axios';
 export interface AIAnalysisResult {
   emotion: string;
   emotion_confidence: number;
-  attention: number;
+  attention: number | null;
+  attention_available?: boolean;
+  yaw?: number | null;
+  pitch?: number | null;
   face_detected: boolean;
-  fatigue_level: number;
+  fatigue_level: number | null;
   timestamp: number;
   probabilities?: Record<string, number>;
   class_id?: number;
   color?: string;
   description?: string;
+  demo_mode?: boolean;
+  source?: 'model' | 'fallback';
 }
 
 export interface AISessionAnalysis {

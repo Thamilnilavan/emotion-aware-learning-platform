@@ -37,11 +37,10 @@ class FaceDetector:
         if not isinstance(image, np.ndarray):
             image = np.array(image)
         
-        # Convert BGR to RGB for MediaPipe
-        if len(image.shape) == 3 and image.shape[2] == 3:
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        else:
-            image_rgb = image
+        # The API decoder and training pipeline both use RGB. Treating this as
+        # OpenCV BGR swaps red/blue channels and makes webcam inference differ
+        # from RAF-DB evaluation images.
+        image_rgb = np.ascontiguousarray(image)
         
         # Detect faces
         with self._lock:
@@ -64,28 +63,35 @@ class FaceDetector:
         
         return faces
     
-    def extract_face(self, image, bbox, padding=20):
+    def extract_face(self, image, bbox, padding_ratio=0.18):
         """
         Extract face region from image using bounding box
         
         Args:
             image: Input image
             bbox: Bounding box (x, y, width, height)
-            padding: Padding around the face
+            padding_ratio: Proportional context around the face
             
         Returns:
             Cropped face image
         """
         x, y, w, h = bbox
         
-        # Add padding
-        x = max(0, x - padding)
-        y = max(0, y - padding)
-        w = min(image.shape[1] - x, w + 2 * padding)
-        h = min(image.shape[0] - y, h + 2 * padding)
-        
-        # Extract face
-        face = image[y:y+h, x:x+w]
+        image_height, image_width = image.shape[:2]
+        side = max(w, h) * (1 + 2 * padding_ratio)
+        center_x = x + w / 2
+        center_y = y + h / 2
+        side = min(side, image_width, image_height)
+
+        left = int(round(center_x - side / 2))
+        top = int(round(center_y - side / 2))
+        left = max(0, min(left, image_width - int(side)))
+        top = max(0, min(top, image_height - int(side)))
+        right = min(image_width, left + int(side))
+        bottom = min(image_height, top + int(side))
+
+        # A square crop avoids stretching expressions before 300x300 resize.
+        face = image[top:bottom, left:right]
         
         return face
     

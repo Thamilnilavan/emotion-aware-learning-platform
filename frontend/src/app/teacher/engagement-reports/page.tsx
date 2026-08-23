@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, Award, AlertCircle, Calendar } from 'lucide-react';
+import { TrendingUp, Award, AlertCircle, Calendar, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import teacherAPI from '@/services/api/teacher';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -16,7 +16,7 @@ function EngagementReportsContent() {
 
   useEffect(() => {
     teacherAPI.getEngagementReports(timeRange)
-      .then((res) => setReportsData(res.data))
+      .then(setReportsData)
       .catch(() => toast.error('Failed to load engagement reports'))
       .finally(() => setLoading(false));
   }, [timeRange]);
@@ -25,6 +25,16 @@ function EngagementReportsContent() {
 
   const topPerformers = reportsData?.topPerformers as Array<Record<string, any>> || [];
   const lowEngagement = reportsData?.lowEngagement as Array<Record<string, any>> || [];
+  const exportReport = () => {
+    const rows = [...topPerformers, ...lowEngagement]
+      .filter((item, index, all) => all.findIndex(other => other.student?._id === item.student?._id) === index)
+      .map(item => [item.student?.name, item.student?.email, item.avgEngagement, item.sessionCount]);
+    const csv = [['Student','Email','Average engagement','Sessions'], ...rows]
+      .map(row => row.map(value => `"${String(value ?? '').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const link = document.createElement('a'); link.href = url; link.download = `engagement-report-${timeRange}.csv`; link.click(); URL.revokeObjectURL(url);
+    toast.success('Report downloaded');
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
@@ -40,7 +50,7 @@ function EngagementReportsContent() {
                 <p className="text-sm text-body">Student performance analytics</p>
               </div>
             </div>
-            <select 
+            <div className="flex gap-2"><button onClick={exportReport} className="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold text-heading"><Download className="h-4 w-4"/>Export</button><select 
               value={timeRange} 
               onChange={(e) => setTimeRange(e.target.value)}
               className="rounded-xl border px-4 py-2 text-sm"
@@ -48,7 +58,7 @@ function EngagementReportsContent() {
               <option value="7d">Last 7 Days</option>
               <option value="30d">Last 30 Days</option>
               <option value="90d">Last 90 Days</option>
-            </select>
+            </select></div>
           </div>
 
           {/* Summary Stats */}

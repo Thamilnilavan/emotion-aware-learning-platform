@@ -12,9 +12,6 @@ from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-import seaborn
-import matplotlib
-import sklearn
 
 # Configuration
 DATASET_PATH = 'dataset'

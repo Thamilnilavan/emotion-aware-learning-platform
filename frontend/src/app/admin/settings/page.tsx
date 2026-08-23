@@ -12,10 +12,11 @@ import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 function SettingsContent() {
   const [settingsData, setSettingsData] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     adminAPI.getSettings()
-      .then((res) => setSettingsData(res.data))
+      .then((res) => setSettingsData(res))
       .catch(() => toast.error('Failed to load settings'))
       .finally(() => setLoading(false));
   }, []);
@@ -26,6 +27,34 @@ function SettingsContent() {
   const general = settings?.general as Record<string, string> | undefined;
   const ai = settings?.ai as Record<string, string> | undefined;
   const privacy = settings?.privacy as Record<string, any> | undefined;
+
+  const updateField = (section: string, key: string, value: unknown) => {
+    setSettingsData((previous) => ({
+      ...(previous || {}),
+      settings: {
+        ...((previous?.settings as Record<string, any>) || {}),
+        [section]: {
+          ...(((previous?.settings as Record<string, any>)?.[section]) || {}),
+          [key]: value,
+        },
+      },
+    }));
+  };
+
+  const saveSettings = async () => {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      await Promise.all(['general', 'ai', 'privacy'].map((section) =>
+        adminAPI.updateSettings(section, settings[section] || {})
+      ));
+      toast.success('Settings saved successfully');
+    } catch {
+      toast.error('Unable to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
@@ -46,7 +75,8 @@ function SettingsContent() {
                 <label className="mb-2 block text-sm font-medium text-body">Site Name</label>
                 <input
                   type="text"
-                  defaultValue={general?.siteName || 'EmoLearn'}
+                  value={general?.siteName || 'Eduvo'}
+                  onChange={(event) => updateField('general', 'siteName', event.target.value)}
                   className="w-full rounded-xl border px-4 py-2 text-sm"
                 />
               </div>
@@ -54,7 +84,8 @@ function SettingsContent() {
                 <label className="mb-2 block text-sm font-medium text-body">Support Email</label>
                 <input
                   type="email"
-                  defaultValue={general?.supportEmail || 'support@emolearn.com'}
+                  value={general?.supportEmail || 'support@eduvo.app'}
+                  onChange={(event) => updateField('general', 'supportEmail', event.target.value)}
                   className="w-full rounded-xl border px-4 py-2 text-sm"
                 />
               </div>
@@ -75,7 +106,8 @@ function SettingsContent() {
                   step="0.01"
                   min="0"
                   max="1"
-                  defaultValue={ai?.confidenceThreshold || 0.55}
+                  value={ai?.confidenceThreshold || 0.55}
+                  onChange={(event) => updateField('ai', 'confidenceThreshold', Number(event.target.value))}
                   className="w-full rounded-xl border px-4 py-2 text-sm"
                 />
               </div>
@@ -86,7 +118,8 @@ function SettingsContent() {
                   step="0.01"
                   min="0"
                   max="1"
-                  defaultValue={ai?.engagementThreshold || 0.7}
+                  value={ai?.engagementThreshold || 0.7}
+                  onChange={(event) => updateField('ai', 'engagementThreshold', Number(event.target.value))}
                   className="w-full rounded-xl border px-4 py-2 text-sm"
                 />
               </div>
@@ -94,7 +127,8 @@ function SettingsContent() {
                 <label className="mb-2 block text-sm font-medium text-body">AI Gateway URL</label>
                 <input
                   type="text"
-                  defaultValue={ai?.aiGatewayUrl || 'http://localhost:5000'}
+                  value={ai?.aiGatewayUrl || 'http://localhost:5000'}
+                  onChange={(event) => updateField('ai', 'aiGatewayUrl', event.target.value)}
                   className="w-full rounded-xl border px-4 py-2 text-sm"
                 />
               </div>
@@ -113,14 +147,16 @@ function SettingsContent() {
                 <input
                   type="number"
                   min="1"
-                  defaultValue={String(privacy?.dataRetentionDays || 180)}
+                  value={String(privacy?.dataRetentionDays || 180)}
+                  onChange={(event) => updateField('privacy', 'dataRetentionDays', Number(event.target.value))}
                   className="w-full rounded-xl border px-4 py-2 text-sm"
                 />
               </div>
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
-                  defaultChecked={privacy?.anonymizeData === true}
+                  checked={privacy?.anonymizeData === true}
+                  onChange={(event) => updateField('privacy', 'anonymizeData', event.target.checked)}
                   className="rounded"
                 />
                 <label className="text-sm text-body">Anonymize data by default</label>
@@ -131,10 +167,11 @@ function SettingsContent() {
           {/* Save Button */}
           <div className="flex justify-end">
             <button
-              onClick={() => toast.success('Settings saved successfully')}
+              onClick={saveSettings}
+              disabled={saving}
               className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-semibold text-white"
             >
-              Save Settings
+              {saving ? 'Saving…' : 'Save Settings'}
             </button>
           </div>
         </main>

@@ -13,16 +13,24 @@ function PrivacyContent() {
   const [privacyData, setPrivacyData] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadPrivacy = () => adminAPI.getPrivacy()
+    .then(setPrivacyData)
+    .catch(() => toast.error('Failed to load privacy data'))
+    .finally(() => setLoading(false));
+
   useEffect(() => {
-    adminAPI.getPrivacy()
-      .then((res) => setPrivacyData(res.data))
-      .catch(() => toast.error('Failed to load privacy data'))
-      .finally(() => setLoading(false));
+    loadPrivacy();
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
 
   const privacy = privacyData?.privacy as Record<string, any> | undefined;
+  const requests = (privacy?.deletionRequests || []) as Array<Record<string, any>>;
+
+  const updateRequest = async (id: string, status: 'approved' | 'rejected' | 'completed') => {
+    try { await adminAPI.updateDeletionRequest(id, status); toast.success(`Request ${status}`); await loadPrivacy(); }
+    catch { toast.error('Could not update deletion request'); }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
@@ -112,8 +120,9 @@ function PrivacyContent() {
             <p className="mb-4 text-sm text-body">
               Users can request deletion of their personal data at any time. All requests are processed within 30 days.
             </p>
-            <div className="rounded-lg bg-muted/50 p-4">
-              <p className="text-sm text-body">No pending deletion requests</p>
+            <div className="space-y-3">
+              {requests.map(request => <div key={String(request._id)} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-4"><div><p className="font-semibold text-heading">{request.userId?.name || 'Deleted user'}</p><p className="text-xs text-body">{request.userId?.email} · {request.reason}</p><p className="mt-1 text-xs capitalize text-body">Status: {request.status}</p></div>{request.status === 'pending' && <div className="flex gap-2"><button onClick={()=>updateRequest(String(request._id),'approved')} className="rounded-lg bg-success/20 px-3 py-2 text-xs font-semibold text-success">Approve</button><button onClick={()=>updateRequest(String(request._id),'rejected')} className="rounded-lg bg-danger/20 px-3 py-2 text-xs font-semibold text-danger">Reject</button></div>}</div>)}
+              {requests.length === 0 && <div className="rounded-lg bg-muted/50 p-4"><p className="text-sm text-body">No deletion requests.</p></div>}
             </div>
           </div>
         </main>

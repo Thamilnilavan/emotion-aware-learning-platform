@@ -1,0 +1,58 @@
+{
+  "project": "Eduvo \u2014 Learning That Evolves With You",
+  "task": "Seven-class facial-expression recognition",
+  "architecture": "EfficientNetB3 transfer learning",
+  "dataset": "RAF-DB basic expressions",
+  "input_shape": [
+    300,
+    300,
+    3
+  ],
+  "input_range": [
+    0.0,
+    1.0
+  ],
+  "output_class_order": [
+    "Happy",
+    "Sad",
+    "Angry",
+    "Neutral",
+    "Surprised",
+    "Fearful",
+    "Disgusted"
+  ],
+  "raf_folder_order": [
+    "4",
+    "5",
+    "6",
+    "7",
+    "1",
+    "2",
+    "3"
+  ],
+  "validation_split_from_training": 0.1,
+  "tempered_class_weights_used": false,
+  "selected_checkpoint": "stage3_best.keras",
+  "test_metrics": {
+    "test_images": 3068,
+    "test_loss_single_pass": 0.5935330986976624,
+    "test_accuracy_single_pass": 0.8161668839634941,
+    "test_accuracy_horizontal_flip_tta": 0.8191003911342895,
+    "reported_evaluation_mode": "horizontal-flip TTA",
+    "reported_accuracy": 0.8191003911342895,
+    "macro_precision": 0.7419388679804613,
+    "macro_recall": 0.7140289377716312,
+    "macro_f1": 0.7265627370019454,
+    "weighted_precision": 0.8172978747776856,
+    "weighted_recall": 0.8191003911342895,
+    "weighted_f1": 0.8174581301053507,
+    "mean_confidence": 0.8760111927986145,
+    "single_pass_evaluation_seconds": 28.63775344699934
+  },
+  "limitations": [
+    "Facial expression does not provide a definitive measurement of internal emotion.",
+    "RAF-DB class imbalance can reduce minority-class performance.",
+    "Performance may vary with lighting, pose, occlusion, camera quality and population differences.",
+    "The model must be used as one input to engagement estimation, not as a clinical or psychological assessment."
+  ]
+}

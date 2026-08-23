@@ -15,7 +15,7 @@ function EmotionsContent() {
 
   useEffect(() => {
     teacherAPI.getEmotionAnalytics()
-      .then((res) => setEmotionsData(res.data))
+      .then(setEmotionsData)
       .catch(() => toast.error('Failed to load emotion analytics'))
       .finally(() => setLoading(false));
   }, []);

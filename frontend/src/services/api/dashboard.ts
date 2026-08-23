@@ -29,5 +29,23 @@ export const coursesAPI = {
     api.post<{ success: boolean; course: Course }>('/courses', data),
   update: (id: string, data: Record<string, any>) =>
     api.put<{ success: boolean; course: Course }>(`/courses/${id}`, data),
+  addStudent: (id: string, email: string) =>
+    api.post(`/courses/${id}/students`, { email }),
+  removeStudent: (id: string, studentId: string) =>
+    api.delete(`/courses/${id}/students/${studentId}`),
+  uploadVideo: (data: FormData, onProgress?: (percentage: number) => void) =>
+    api.post('/courses/upload-video', data, {
+      timeout: 10 * 60 * 1000,
+      onUploadProgress: (event) => {
+        if (event.total && onProgress) onProgress(Math.round((event.loaded * 100) / event.total));
+      },
+    }),
+  uploadMaterial: (data: FormData, onProgress?: (percentage: number) => void) =>
+    api.post('/courses/upload-material', data, {
+      timeout: 5 * 60 * 1000,
+      onUploadProgress: (event) => {
+        if (event.total && onProgress) onProgress(Math.round((event.loaded * 100) / event.total));
+      },
+    }),
   enroll: (id: string) => api.post<{ success: boolean }>(`/courses/${id}/enroll`),
 };

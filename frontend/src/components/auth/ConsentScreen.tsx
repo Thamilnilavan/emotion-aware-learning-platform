@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { authAPI } from '@/services/api/auth';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Link from 'next/link';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 const consentItems = [
   {
@@ -69,7 +70,9 @@ export function ConsentScreen() {
     <div className="min-h-screen bg-background px-4 py-12">
       <div className="mx-auto max-w-2xl">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-extrabold text-heading">EmoLearn</h1>
+          <Link href="/" className="inline-flex" aria-label="Eduvo home">
+            <BrandLogo priority imageClassName="h-20 w-20" nameClassName="text-3xl font-extrabold text-heading" />
+          </Link>
           <h2 className="mt-4 text-2xl font-bold text-heading">Before you begin</h2>
           <p className="mt-2 text-body">Please review and accept our data collection practices</p>
         </div>

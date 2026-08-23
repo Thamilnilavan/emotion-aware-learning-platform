@@ -59,7 +59,7 @@ export const adminAPI = {
     return response.data;
   },
 
-  async createNotification(data: { title: string; message: string; type?: string }) {
+  async createNotification(data: { title: string; message: string; targetRole?: string }) {
     const response = await api.post(`/admin/notifications`, data);
     return response.data;
   },
@@ -72,6 +72,11 @@ export const adminAPI = {
 
   async createDeletionRequest(data: { userId: string; reason: string }) {
     const response = await api.post(`/admin/privacy/delete-request`, data);
+    return response.data;
+  },
+
+  async updateDeletionRequest(id: string, status: 'approved' | 'rejected' | 'completed') {
+    const response = await api.put(`/admin/privacy/delete-request/${id}`, { status });
     return response.data;
   },
 

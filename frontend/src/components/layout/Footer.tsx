@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Brain } from 'lucide-react';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export function Footer() {
   return (
@@ -7,10 +7,9 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 md:grid-cols-4">
         <div className="md:col-span-2">
           <div className="mb-4 flex items-center gap-2 text-white">
-            <Brain className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">EmoLearn</span>
+            <BrandLogo imageClassName="h-12 w-12" nameClassName="text-lg text-white" />
           </div>
-          <p className="text-sm">AI-powered emotion-aware adaptive learning for better outcomes.</p>
+          <p className="text-sm">Learning That Evolves With You.</p>
         </div>
         <div>
           <h4 className="mb-3 font-semibold text-white">Platform</h4>
@@ -27,7 +26,7 @@ export function Footer() {
         </div>
       </div>
       <div className="mx-auto mt-8 max-w-7xl border-t border-white/10 px-4 pt-8 text-center text-xs">
-        © {new Date().getFullYear()} EmoLearn. BSc Software Engineering Final Year Project.
+        © {new Date().getFullYear()} Eduvo. BSc Software Engineering Final Year Project.
       </div>
     </footer>
   );

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import type { UserRole } from '@/types';
+import { toast } from 'sonner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,6 +30,10 @@ export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
     if (!loading && isAuthenticated && user && role) {
       const allowed = Array.isArray(role) ? role : [role];
       if (!allowed.includes(user.role)) {
+        toast.error('Access denied. You do not have permission to view that page.', {
+          id: 'role-access-denied',
+          duration: 3000,
+        });
         router.replace(roleHome[user.role]);
       }
     }

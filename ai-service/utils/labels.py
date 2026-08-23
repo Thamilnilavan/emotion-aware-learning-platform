@@ -4,13 +4,15 @@ Emotion labels mapping for the emotion detection model
 
 # Emotion class labels (RAF-DB dataset)
 EMOTION_LABELS = {
-    0: 'Surprised',
-    1: 'Fearful',
-    2: 'Disgusted',
-    3: 'Happy',
-    4: 'Sad',
-    5: 'Angry',
-    6: 'Neutral'
+    # This order must exactly match EMOTIONS passed to
+    # flow_from_directory(classes=EMOTIONS) in train_model.py.
+    0: 'Happy',
+    1: 'Sad',
+    2: 'Angry',
+    3: 'Neutral',
+    4: 'Surprised',
+    5: 'Fearful',
+    6: 'Disgusted'
 }
 
 # Reverse mapping for prediction

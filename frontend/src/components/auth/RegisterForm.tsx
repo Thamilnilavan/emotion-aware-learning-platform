@@ -11,7 +11,8 @@ import { authAPI } from '@/services/api/auth';
 import { registerSchema, type RegisterInput } from '@/lib/validators';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { cn } from '@/lib/utils';
-import { Brain } from 'lucide-react';
+import { BrandLogo } from '@/components/common/BrandLogo';
+import { Eye, EyeOff } from 'lucide-react';
 function getPasswordStrength(password: string): { label: string; color: string; width: string } {
   if (password.length < 8) return { label: 'Weak', color: 'bg-danger', width: 'w-1/3' };
   const hasNumber = /\d/.test(password);
@@ -23,6 +24,8 @@ function getPasswordStrength(password: string): { label: string; color: string; 
 export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [apiErrors, setApiErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -69,19 +72,19 @@ export function RegisterForm() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#050505] px-6 py-12 text-white">
+    <div className="public-cosmic-page relative flex min-h-screen items-center justify-center px-6 py-12 text-white">
       {/* Sleek Mesh Background */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-[100%] bg-primary/20 blur-[150px] opacity-70 mix-blend-screen" />
         <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-[100%] bg-primary/15 blur-[120px] opacity-60 mix-blend-screen" />
         <div className="absolute bottom-[-20%] left-[10%] w-[40%] h-[40%] rounded-[100%] bg-blue-500/10 blur-[120px] opacity-40 mix-blend-screen" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10 mix-blend-overlay" />
       </div>
 
       <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[2rem] border border-white/10 bg-[#0a0a0a]/80 p-8 shadow-2xl backdrop-blur-3xl sm:p-12">
         <div className="mb-8 text-center">
-          <Link href="/" className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary shadow-lg">
-             <Brain className="h-6 w-6 text-white" />
+          <Link href="/" className="mx-auto mb-6 inline-flex" aria-label="Eduvo home">
+            <BrandLogo showName={false} priority imageClassName="h-20 w-20" />
           </Link>
           <h2 className="mb-2 text-3xl font-bold text-white">Create account</h2>
           <p className="text-white/50">Fill in your details to get started</p>
@@ -102,7 +105,18 @@ export function RegisterForm() {
 
             <div>
               <label className="mb-1 block text-sm font-medium text-white/80">Password</label>
-              <input {...register('password')} type="password" className={cn('w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all', errors.password && 'border-danger')} />
+              <div className="relative">
+                <input {...register('password')} type={showPassword ? 'text' : 'password'} className={cn('w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-4 pr-12 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all', errors.password && 'border-danger')} />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-white/50 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
               {password && (
                 <div className="mt-2">
                   <div className="h-1.5 w-full rounded-full bg-white/10">
@@ -116,7 +130,18 @@ export function RegisterForm() {
 
             <div>
               <label className="mb-1 block text-sm font-medium text-white/80">Confirm Password</label>
-              <input {...register('confirmPassword')} type="password" className={cn('w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all', errors.confirmPassword && 'border-danger')} />
+              <div className="relative">
+                <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} className={cn('w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-4 pr-12 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all', errors.confirmPassword && 'border-danger')} />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((visible) => !visible)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-white/50 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  aria-pressed={showConfirmPassword}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
               {errors.confirmPassword && <p className="mt-1 text-sm text-danger">{errors.confirmPassword.message}</p>}
             </div>
 
@@ -127,17 +152,6 @@ export function RegisterForm() {
                 <option value="teacher">Teacher</option>
                 <option value="admin">Admin</option>
               </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-white/80">ICBT Number</label>
-                <input {...register('icbtNumber')} className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Optional" />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-white/80">Programme</label>
-                <input {...register('programme')} className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none placeholder:text-white/30 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Optional" />
-              </div>
             </div>
 
             <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-60">

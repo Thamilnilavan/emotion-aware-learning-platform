@@ -3,26 +3,25 @@
 import { useEffect, useState } from 'react';
 import { Bell, Trophy, BookOpen, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { dashboardAPI } from '@/services/api/dashboard';
+import { authAPI, type AppNotification } from '@/services/api/auth';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 
 function NotificationsContent() {
-  const [notifications, setNotifications] = useState<Array<Record<string, any>>>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    dashboardAPI.getStudent().then((res) => {
-      // Mock notifications based on dashboard data
-      setNotifications([
-        { id: 1, type: 'achievement', title: 'Achievement Unlocked!', message: 'You earned the First Steps badge', time: '2 hours ago', icon: Trophy },
-        { id: 2, type: 'session', title: 'Session Reminder', message: 'Your scheduled session starts in 30 minutes', time: '1 hour ago', icon: BookOpen },
-        { id: 3, type: 'recommendation', title: 'New Recommendation', message: 'Based on your progress, try Advanced Topics', time: 'Yesterday', icon: AlertCircle },
-      ]);
+    authAPI.getNotifications().then((res) => {
+      setNotifications(res.data.notifications || []);
+      void authAPI.markNotificationsRead().then(() => {
+        window.dispatchEvent(new Event('notifications-read'));
+      });
       setLoading(false);
     }).catch(() => {
+      toast.error('Failed to load notifications');
       setLoading(false);
     });
   }, []);
@@ -31,12 +30,20 @@ function NotificationsContent() {
     achievement: Trophy,
     session: BookOpen,
     recommendation: AlertCircle,
+    feedback: BookOpen,
+    warning: AlertCircle,
+    encouragement: Trophy,
+    system: Bell,
   };
 
   const typeColors: Record<string, string> = {
     achievement: 'bg-warning/10 border-warning/30 text-warning',
     session: 'bg-primary/10 border-primary/30 text-primary',
     recommendation: 'bg-success/10 border-success/30 text-success',
+    feedback: 'bg-primary/10 border-primary/30 text-primary',
+    warning: 'bg-danger/10 border-danger/30 text-danger',
+    encouragement: 'bg-success/10 border-success/30 text-success',
+    system: 'bg-primary/10 border-primary/30 text-primary',
   };
 
   return (
@@ -66,11 +73,11 @@ function NotificationsContent() {
                   <p className="text-body">You're all caught up!</p>
                 </div>
               ) : (
-                notifications.map((notification: any) => {
+                notifications.map((notification) => {
                   const Icon = typeIcons[notification.type] || Bell;
                   return (
                     <div
-                      key={notification.id}
+                      key={notification._id}
                       className={`glass-card border p-4 ${typeColors[notification.type] || 'bg-muted/10 border-muted/30'}`}
                     >
                       <div className="flex items-start gap-4">
@@ -80,7 +87,7 @@ function NotificationsContent() {
                         <div className="flex-1">
                           <div className="mb-1 flex items-center justify-between">
                             <h4 className="font-semibold text-heading">{notification.title}</h4>
-                            <span className="text-xs text-body">{notification.time}</span>
+                            <span className="text-xs text-body">{new Date(notification.createdAt).toLocaleString()}</span>
                           </div>
                           <p className="text-sm text-body">{notification.message}</p>
                         </div>

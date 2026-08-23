@@ -1,0 +1,16 @@
+{
+  "test_images": 3068,
+  "test_loss_single_pass": 0.5935330986976624,
+  "test_accuracy_single_pass": 0.8161668839634941,
+  "test_accuracy_horizontal_flip_tta": 0.8191003911342895,
+  "reported_evaluation_mode": "horizontal-flip TTA",
+  "reported_accuracy": 0.8191003911342895,
+  "macro_precision": 0.7419388679804613,
+  "macro_recall": 0.7140289377716312,
+  "macro_f1": 0.7265627370019454,
+  "weighted_precision": 0.8172978747776856,
+  "weighted_recall": 0.8191003911342895,
+  "weighted_f1": 0.8174581301053507,
+  "mean_confidence": 0.8760111927986145,
+  "single_pass_evaluation_seconds": 28.63775344699934
+}

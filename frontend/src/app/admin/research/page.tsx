@@ -15,7 +15,7 @@ function ResearchContent() {
 
   useEffect(() => {
     adminAPI.getResearch()
-      .then((res) => setResearchData(res.data))
+      .then(setResearchData)
       .catch(() => toast.error('Failed to load research data'))
       .finally(() => setLoading(false));
   }, []);
@@ -88,48 +88,23 @@ function ResearchContent() {
             </div>
           </div>
 
-          {/* Research Metrics Placeholder */}
+          {/* Research context */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="glass-card p-6">
-              <h3 className="mb-4 font-bold text-heading">Model Performance</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-body">Accuracy</span>
-                  <span className="text-sm font-bold text-heading">82.9%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-body">Precision</span>
-                  <span className="text-sm font-bold text-heading">81.2%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-body">Recall</span>
-                  <span className="text-sm font-bold text-heading">79.8%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-body">F1 Score</span>
-                  <span className="text-sm font-bold text-heading">80.5%</span>
-                </div>
-              </div>
+              <h3 className="mb-4 font-bold text-heading">Research Data Quality</h3>
+              <p className="text-sm text-body">These metrics are calculated from completed learning sessions. Raw webcam images and videos are not retained; only consented analytical metadata contributes to the aggregates.</p>
             </div>
 
             <div className="glass-card p-6">
               <h3 className="mb-4 font-bold text-heading">Dataset Information</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-sm text-body">FER2013</span>
-                  <span className="text-sm font-bold text-heading">35,887 images</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-body">AffectNet</span>
-                  <span className="text-sm font-bold text-heading">440,000 images</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-sm text-body">RAF-DB</span>
-                  <span className="text-sm font-bold text-heading">15,671 images</span>
+                  <span className="text-sm font-bold text-heading">7 expressions</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-body">CK+</span>
-                  <span className="text-sm font-bold text-heading">593 images</span>
+                  <span className="text-sm text-body">Model</span>
+                  <span className="text-sm font-bold text-heading">EfficientNetB3</span>
                 </div>
               </div>
             </div>

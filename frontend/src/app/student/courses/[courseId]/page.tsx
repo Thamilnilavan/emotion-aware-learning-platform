@@ -177,7 +177,7 @@ function CourseDetailsContent() {
                     <div className="flex-1">
                       <p className="text-xs font-medium text-gray-900 truncate">{content.title}</p>
                     </div>
-                    <span className="text-xs text-gray-500">{Math.floor(Math.random() * 15 + 5)}m</span>
+                    <span className="text-xs text-gray-500">{content.durationMinutes || 0}m</span>
                   </div>
                 </div>
               ))}
@@ -213,7 +213,7 @@ function CourseDetailsContent() {
                         </div>
                       )}
                       <Link
-                        href={`/student/courses/${courseId}/sessions/${session._id}`}
+                        href={`/student/learning-session/${courseId}`}
                         className="flex items-center gap-1 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
                       >
                         <Play className="h-3 w-3" />

@@ -1,251 +1,54 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useState } from 'react';
+import { ArrowDown, ArrowUp, FileText, Link as LinkIcon, Pencil, Plus, Trash2, Upload, UserMinus, UserPlus, Video, Youtube } from 'lucide-react';
 import { toast } from 'sonner';
-import { Plus, Trash2, Youtube, FileText, Link as LinkIcon, Video, Upload } from 'lucide-react';
 import { coursesAPI } from '@/services/api/dashboard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import type { Course } from '@/types';
-import api from '@/lib/axios';
+
+type Material = { contentType: 'video'|'youtube'|'document'|'link'; title: string; url: string; durationMinutes: number; order: number };
+const emptyForm = { title:'', description:'', zoomLink:'', googleClassroomLink:'', teamsLink:'', engagementThreshold:45, alertFrequency:'medium', content:[] as Material[] };
 
 export function CourseManager() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    title: '', description: '', zoomLink: '', googleClassroomLink: '',
-    content: [] as Array<{ contentType: string; title: string; url: string; durationMinutes: number; order: number }>,
-  });
-  const [showContentForm, setShowContentForm] = useState(false);
-  const [contentForm, setContentForm] = useState({
-    contentType: 'video',
-    title: '',
-    url: '',
-    durationMinutes: 0,
-  });
-  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [courses,setCourses]=useState<Course[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [saving,setSaving]=useState(false);
+  const [editingId,setEditingId]=useState<string|null>(null);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState(emptyForm);
+  const [showMaterial,setShowMaterial]=useState(false);
+  const [material,setMaterial]=useState<Omit<Material,'order'>>({contentType:'video',title:'',url:'',durationMinutes:0});
+  const [uploading,setUploading]=useState(false);
+  const [uploadProgress,setUploadProgress]=useState(0);
+  const [enrolEmails,setEnrolEmails]=useState<Record<string,string>>({});
 
-  const loadCourses = () => {
-    coursesAPI.getMy().then((res) => setCourses(res.data.courses || [])).finally(() => setLoading(false));
-  };
+  const loadCourses=useCallback(async()=>{try{const response=await coursesAPI.getMy();setCourses(response.data.courses||[]);}catch{toast.error('Failed to load courses');}finally{setLoading(false);}},[]);
+  useEffect(()=>{loadCourses();},[loadCourses]);
 
-  useEffect(() => { loadCourses(); }, []);
+  const reset=()=>{setForm(emptyForm);setEditingId(null);setShowForm(false);setShowMaterial(false);setUploadProgress(0);};
+  const edit=(course:Course)=>{setEditingId(course._id);setForm({title:course.title,description:course.description||'',zoomLink:course.integrations?.zoomLink||'',googleClassroomLink:course.integrations?.googleClassroomLink||'',teamsLink:course.integrations?.teamsLink||'',engagementThreshold:course.settings?.engagementThreshold??45,alertFrequency:course.settings?.alertFrequency||'medium',content:(course.content||[]).map((item,index)=>({...item,order:index}))});setShowForm(true);window.scrollTo({top:0,behavior:'smooth'});};
+  const save=async()=>{if(!form.title.trim())return toast.error('Course title is required');setSaving(true);try{const payload={title:form.title.trim(),description:form.description.trim(),content:form.content.map((item,index)=>({...item,order:index})),integrations:{zoomLink:form.zoomLink,googleClassroomLink:form.googleClassroomLink,teamsLink:form.teamsLink},settings:{engagementThreshold:Number(form.engagementThreshold),alertFrequency:form.alertFrequency}};if(editingId)await coursesAPI.update(editingId,payload);else await coursesAPI.create(payload);toast.success(editingId?'Course updated':'Course created');reset();await loadCourses();}catch(error:any){toast.error(error?.response?.data?.message||'Could not save course');}finally{setSaving(false);}};
+  const addMaterial=()=>{if(!material.title.trim()||!material.url.trim())return toast.error('Material title and file/URL are required');setForm({...form,content:[...form.content,{...material,title:material.title.trim(),url:material.url.trim(),order:form.content.length}]});setMaterial({contentType:'video',title:'',url:'',durationMinutes:0});setUploadProgress(0);setShowMaterial(false);};
+  const move=(index:number,direction:-1|1)=>{const target=index+direction;if(target<0||target>=form.content.length)return;const next=[...form.content];[next[index],next[target]]=[next[target],next[index]];setForm({...form,content:next.map((item,i)=>({...item,order:i}))});};
+  const uploadFile=async(event:ChangeEvent<HTMLInputElement>)=>{const file=event.target.files?.[0];if(!file)return;setUploading(true);setUploadProgress(0);try{const data=new FormData();const video=material.contentType==='video';data.append(video?'video':'material',file);const response=video?await coursesAPI.uploadVideo(data,setUploadProgress):await coursesAPI.uploadMaterial(data,setUploadProgress);setMaterial({...material,url:video?response.data.videoUrl:response.data.materialUrl,title:material.title||file.name});setUploadProgress(100);toast.success('File uploaded. Select Add to course to attach it.');}catch(error:any){toast.error(error?.response?.data?.message||(error?.code==='ECONNABORTED'?'Upload timed out. Check the backend and try again.':'File upload failed'));setUploadProgress(0);}finally{setUploading(false);event.target.value='';}};
+  const addStudent=async(courseId:string)=>{const email=(enrolEmails[courseId]||'').trim();if(!email)return toast.error('Enter the student email');try{await coursesAPI.addStudent(courseId,email);toast.success('Student enrolled');setEnrolEmails({...enrolEmails,[courseId]:''});await loadCourses();}catch(error:any){toast.error(error?.response?.data?.message||'Could not enrol student');}};
+  const removeStudent=async(courseId:string,studentId:string)=>{try{await coursesAPI.removeStudent(courseId,studentId);toast.success('Student removed');await loadCourses();}catch{toast.error('Could not remove student');}};
+  const archive=async(course:Course)=>{try{await coursesAPI.update(course._id,{isActive:!course.isActive});toast.success(course.isActive?'Course archived':'Course restored');await loadCourses();}catch{toast.error('Could not update course status');}};
+  const icon=(type:string)=>type==='youtube'?<Youtube className="h-4 w-4"/>:type==='document'?<FileText className="h-4 w-4"/>:type==='link'?<LinkIcon className="h-4 w-4"/>:<Video className="h-4 w-4"/>;
 
-  const createCourse = async () => {
-    if (!form.title.trim()) { toast.error('Title is required'); return; }
-    try {
-      const courseData = {
-        title: form.title,
-        description: form.description,
-        integrations: { zoomLink: form.zoomLink, googleClassroomLink: form.googleClassroomLink },
-        content: form.content,
-      };
-      console.log('Creating course with data:', courseData);
-      await coursesAPI.create(courseData);
-      toast.success('Course created');
-      setShowForm(false);
-      setForm({ title: '', description: '', zoomLink: '', googleClassroomLink: '', content: [] });
-      loadCourses();
-    } catch (err: unknown) {
-      console.error('Failed to create course:', err);
-      const message = (err as { response?: { data?: { message?: string; errors?: unknown[] } } })?.response?.data?.message;
-      const errors = (err as { response?: { data?: { errors?: unknown[] } } })?.response?.data?.errors;
-      console.error('Error details:', { message, errors });
-      toast.error(message || 'Failed to create course');
-    }
-  };
-
-  const addContent = () => {
-    if (!contentForm.title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-    if (contentForm.contentType === 'video' && !contentForm.url.trim()) {
-      toast.error('Please upload a video file');
-      return;
-    }
-    if (contentForm.contentType !== 'video' && !contentForm.url.trim()) {
-      toast.error('URL is required');
-      return;
-    }
-    setForm({
-      ...form,
-      content: [
-        ...form.content,
-        {
-          ...contentForm,
-          order: form.content.length,
-        },
-      ],
-    });
-    setContentForm({ contentType: 'video', title: '', url: '', durationMinutes: 0 });
-    setShowContentForm(false);
-  };
-
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingVideo(true);
-    const formData = new FormData();
-    formData.append('video', file);
-
-    try {
-      const response = await api.post('/courses/upload-video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setContentForm({ ...contentForm, url: response.data.videoUrl });
-      toast.success('Video uploaded successfully');
-    } catch (error) {
-      toast.error('Failed to upload video');
-    } finally {
-      setUploadingVideo(false);
-    }
-  };
-
-  const removeContent = (index: number) => {
-    setForm({
-      ...form,
-      content: form.content.filter((_, i) => i !== index),
-    });
-  };
-
-  const getContentTypeIcon = (type: string) => {
-    switch (type) {
-      case 'youtube': return <Youtube className="h-4 w-4" />;
-      case 'video': return <Video className="h-4 w-4" />;
-      case 'document': return <FileText className="h-4 w-4" />;
-      case 'link': return <LinkIcon className="h-4 w-4" />;
-      default: return <Video className="h-4 w-4" />;
-    }
-  };
-
-  if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
-
-  return (
-    <div className="min-h-screen bg-background pb-20 lg:pb-0">
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-4 md:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-extrabold text-heading">Course Management</h1>
-            <button onClick={() => setShowForm(!showForm)} className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-semibold text-white">
-              {showForm ? 'Cancel' : 'Create Course'}
-            </button>
-          </div>
-
-          {showForm && (
-            <div className="mb-8 glass-card space-y-4 p-6">
-              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Course title" className="w-full rounded-xl border px-4 py-3" />
-              <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" rows={3} className="w-full rounded-xl border px-4 py-3" />
-              <input value={form.zoomLink} onChange={(e) => setForm({ ...form, zoomLink: e.target.value })} placeholder="Zoom link (optional)" className="w-full rounded-xl border px-4 py-3" />
-              <input value={form.googleClassroomLink} onChange={(e) => setForm({ ...form, googleClassroomLink: e.target.value })} placeholder="Google Classroom link (optional)" className="w-full rounded-xl border px-4 py-3" />
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-heading">Course Content</h3>
-                  <button onClick={() => setShowContentForm(!showContentForm)} className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-                    <Plus className="h-4 w-4" /> Add Content
-                  </button>
-                </div>
-
-                {showContentForm && (
-                  <div className="space-y-3 rounded-xl bg-background p-4">
-                    <select
-                      value={contentForm.contentType}
-                      onChange={(e) => setContentForm({ ...contentForm, contentType: e.target.value })}
-                      className="w-full rounded-xl border px-4 py-2"
-                    >
-                      <option value="video">Local Video File</option>
-                      <option value="youtube">YouTube Video</option>
-                      <option value="document">Document</option>
-                      <option value="link">External Link</option>
-                    </select>
-                    <input
-                      value={contentForm.title}
-                      onChange={(e) => setContentForm({ ...contentForm, title: e.target.value })}
-                      placeholder="Content title"
-                      className="w-full rounded-xl border px-4 py-2"
-                    />
-                    {contentForm.contentType === 'video' ? (
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-3 cursor-pointer hover:bg-muted/50">
-                          <Upload className="h-4 w-4 text-primary" />
-                          <span className="text-sm text-body">
-                            {contentForm.url ? 'Video uploaded' : 'Click to upload video file'}
-                          </span>
-                          <input
-                            type="file"
-                            accept="video/*"
-                            onChange={handleVideoUpload}
-                            className="hidden"
-                            disabled={uploadingVideo}
-                          />
-                        </label>
-                        {uploadingVideo && <p className="text-xs text-primary">Uploading...</p>}
-                        {contentForm.url && (
-                          <p className="text-xs text-body truncate">{contentForm.url}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <input
-                        value={contentForm.url}
-                        onChange={(e) => setContentForm({ ...contentForm, url: e.target.value })}
-                        placeholder={contentForm.contentType === 'youtube' ? 'YouTube video URL (e.g., https://youtube.com/watch?v=...)' : 'Content URL'}
-                        className="w-full rounded-xl border px-4 py-2"
-                      />
-                    )}
-                    <input
-                      type="number"
-                      value={contentForm.durationMinutes || ''}
-                      onChange={(e) => setContentForm({ ...contentForm, durationMinutes: parseInt(e.target.value) || 0 })}
-                      placeholder="Duration in minutes (optional)"
-                      className="w-full rounded-xl border px-4 py-2"
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={addContent} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white">Add</button>
-                      <button onClick={() => setShowContentForm(false)} className="rounded-xl border px-4 py-2 text-sm">Cancel</button>
-                    </div>
-                  </div>
-                )}
-
-                {form.content.length > 0 && (
-                  <div className="space-y-2">
-                    {form.content.map((item, index) => (
-                      <div key={index} className="flex items-center gap-3 rounded-xl bg-background px-4 py-2">
-                        {getContentTypeIcon(item.contentType)}
-                        <span className="flex-1 text-sm font-medium text-heading">{item.title}</span>
-                        <button onClick={() => removeContent(index)} className="text-danger hover:text-danger/80">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <button onClick={createCourse} className="rounded-2xl bg-primary px-6 py-2.5 text-sm font-semibold text-white">Save Course</button>
-            </div>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {courses.map((course) => (
-              <div key={course._id} className="glass-card p-6">
-                <h3 className="font-bold text-heading">{course.title}</h3>
-                <p className="mb-4 text-sm text-body">{course.description}</p>
-                <div className="flex gap-4 text-sm text-body">
-                  <span>{course.enrolledStudents?.length || 0} students</span>
-                  <span>{course.content?.length || 0} content items</span>
-                </div>
-              </div>
-            ))}
-            {courses.length === 0 && <p className="text-body">No courses yet. Create your first course!</p>}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
+  if(loading)return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg"/></div>;
+  return <div className="min-h-screen bg-background pb-20 lg:pb-0"><Navbar/><div className="flex"><Sidebar/><main className="flex-1 p-4 md:p-8">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold text-heading">Courses & Study Materials</h1><p className="text-sm text-body">Build lessons, upload materials and manage enrolled students.</p></div><button onClick={()=>showForm?reset():(setShowForm(true),setEditingId(null),setForm(emptyForm))} className="rounded-xl bg-primary px-5 py-2.5 font-semibold text-white">{showForm?'Close editor':'Create course'}</button></div>
+    {showForm&&<section className="glass-card mb-8 space-y-5 p-6"><h2 className="font-bold text-heading">{editingId?'Edit course':'New course'}</h2><div className="grid gap-3 md:grid-cols-2"><input value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Course title" className="rounded-xl border px-4 py-3"/><input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Course description" className="rounded-xl border px-4 py-3"/><input value={form.zoomLink} onChange={e=>setForm({...form,zoomLink:e.target.value})} placeholder="Zoom link (optional)" className="rounded-xl border px-4 py-3"/><input value={form.googleClassroomLink} onChange={e=>setForm({...form,googleClassroomLink:e.target.value})} placeholder="Google Classroom link (optional)" className="rounded-xl border px-4 py-3"/><input value={form.teamsLink} onChange={e=>setForm({...form,teamsLink:e.target.value})} placeholder="Microsoft Teams link (optional)" className="rounded-xl border px-4 py-3"/><div className="flex gap-2"><input type="number" min="0" max="100" value={form.engagementThreshold} onChange={e=>setForm({...form,engagementThreshold:Number(e.target.value)})} className="w-1/2 rounded-xl border px-3 py-2" title="Engagement alert threshold"/><select value={form.alertFrequency} onChange={e=>setForm({...form,alertFrequency:e.target.value})} className="w-1/2 rounded-xl border px-3 py-2"><option value="low">Low alerts</option><option value="medium">Medium alerts</option><option value="high">High alerts</option></select></div></div>
+      <div className="flex items-center justify-between"><h3 className="font-semibold text-heading">Study materials ({form.content.length})</h3><button onClick={()=>setShowMaterial(!showMaterial)} className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-semibold text-primary"><Plus className="h-4 w-4"/>Add material</button></div>
+      {showMaterial&&<div className="grid gap-3 rounded-xl bg-muted/40 p-4 md:grid-cols-2"><select value={material.contentType} onChange={e=>setMaterial({...material,contentType:e.target.value as Material['contentType'],url:''})} className="rounded-xl border px-3 py-2"><option value="video">Uploaded video</option><option value="youtube">YouTube video</option><option value="document">Document/PDF/slides</option><option value="link">External resource</option></select><input value={material.title} onChange={e=>setMaterial({...material,title:e.target.value})} placeholder="Material title" className="rounded-xl border px-3 py-2"/>{material.contentType==='video'||material.contentType==='document'?<label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-4 py-3 text-sm text-body"><Upload className="h-4 w-4 text-primary"/>{uploading?'Uploading…':material.url?'File uploaded—choose another':'Choose file'}<input className="hidden" type="file" accept={material.contentType==='video'?'video/*':'.pdf,.doc,.docx,.ppt,.pptx,.txt'} disabled={uploading} onChange={uploadFile}/></label>:<input value={material.url} onChange={e=>setMaterial({...material,url:e.target.value})} placeholder={material.contentType==='youtube'?'YouTube URL':'Resource URL'} className="rounded-xl border px-3 py-2"/>}<input type="number" min="0" value={material.durationMinutes||''} onChange={e=>setMaterial({...material,durationMinutes:Number(e.target.value)||0})} placeholder="Duration in minutes" className="rounded-xl border px-3 py-2"/><button onClick={addMaterial} disabled={uploading} className="rounded-xl bg-primary px-4 py-2 font-semibold text-white">Add to course</button></div>}
+      {uploading&&<div aria-live="polite"><div className="mb-1 flex justify-between text-xs text-body"><span>Uploading lesson file</span><span>{uploadProgress}%</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-all" style={{width:`${uploadProgress}%`}}/></div></div>}
+      {!uploading&&uploadProgress===100&&material.url&&<p className="text-sm font-medium text-success">Upload complete. Select Add to course, then save the course.</p>}
+      <div className="space-y-2">{form.content.map((item,index)=><div key={`${item.url}-${index}`} className="flex items-center gap-3 rounded-xl bg-muted/40 p-3">{icon(item.contentType)}<div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-heading">{index+1}. {item.title}</p><p className="truncate text-xs text-body">{item.contentType} · {item.durationMinutes||0} min</p></div><button onClick={()=>move(index,-1)} disabled={index===0} className="p-1 disabled:opacity-30"><ArrowUp className="h-4 w-4"/></button><button onClick={()=>move(index,1)} disabled={index===form.content.length-1} className="p-1 disabled:opacity-30"><ArrowDown className="h-4 w-4"/></button><button onClick={()=>setForm({...form,content:form.content.filter((_,i)=>i!==index)})} className="p-1 text-danger"><Trash2 className="h-4 w-4"/></button></div>)}</div>
+      <button onClick={save} disabled={saving||uploading} className="rounded-xl bg-primary px-6 py-2.5 font-semibold text-white disabled:opacity-60">{saving?'Saving…':editingId?'Save changes':'Create course'}</button></section>}
+    <div className="grid gap-5 xl:grid-cols-2">{courses.map(course=>{const students=(course.enrolledStudents||[]) as Array<any>;return <article key={course._id} className="glass-card p-6"><div className="mb-3 flex items-start justify-between gap-3"><div><h3 className="font-bold text-heading">{course.title}</h3><p className="text-sm text-body">{course.description||'No description'}</p></div><span className={`rounded-full px-2 py-1 text-xs ${course.isActive?'bg-success/15 text-success':'bg-muted text-body'}`}>{course.isActive?'Active':'Archived'}</span></div><p className="mb-4 text-sm text-body">{course.content?.length||0} materials · {students.length} students</p><div className="mb-4 flex flex-wrap gap-2"><button onClick={()=>edit(course)} className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm text-heading"><Pencil className="h-4 w-4"/>Edit materials</button><button onClick={()=>archive(course)} className="rounded-lg border px-3 py-2 text-sm text-heading">{course.isActive?'Archive':'Restore'}</button></div><div className="mb-3 flex gap-2"><input type="email" value={enrolEmails[course._id]||''} onChange={e=>setEnrolEmails({...enrolEmails,[course._id]:e.target.value})} placeholder="Student email" className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm"/><button onClick={()=>addStudent(course._id)} className="rounded-xl bg-primary px-3 py-2 text-white" title="Enrol student"><UserPlus className="h-4 w-4"/></button></div><div className="space-y-2">{students.map(student=>typeof student==='object'?<div key={student._id} className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2"><div><p className="text-sm font-medium text-heading">{student.name}</p><p className="text-xs text-body">{student.email}</p></div><button onClick={()=>removeStudent(course._id,student._id)} className="p-2 text-danger" title="Remove student"><UserMinus className="h-4 w-4"/></button></div>:null)}</div></article>})}{courses.length===0&&<p className="text-body">No courses yet. Create your first course.</p>}</div>
+  </main></div></div>;
 }

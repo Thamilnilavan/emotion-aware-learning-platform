@@ -1,4 +1,4 @@
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'EmoLearn';
+export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Eduvo';
 
 export const EMOTIONS = [
   'Happy', 'Neutral', 'Sad', 'Angry', 'Fearful', 'Disgusted', 'Surprised',

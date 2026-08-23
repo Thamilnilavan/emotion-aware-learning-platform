@@ -1,13 +1,15 @@
 'use client';
 
 import { useRef, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import aiService from '@/services/api/ai';
 import type { FrameResult } from '@/types';
 
-const FRAME_RATE = parseInt(process.env.NEXT_PUBLIC_FRAME_RATE || '1', 10);
+const SCAN_INTERVAL_SECONDS = Math.max(
+  1,
+  parseInt(process.env.NEXT_PUBLIC_SCAN_INTERVAL_SECONDS || '2', 10)
+);
 
-export function useWebcam() {
+export function useWebcam(sessionId: string | null = null) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -17,7 +19,21 @@ export function useWebcam() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraEnabledRef = useRef(true);
   const lastActivity = useRef(Date.now());
+  const isProcessingFrame = useRef(false);
+  const consecutiveFailures = useRef(0);
+  const nextAiAttemptAt = useRef(0);
+
+  const emotionValence: Record<string, number> = {
+    happy: 1,
+    surprised: 0.75,
+    neutral: 0.6,
+    fearful: 0.3,
+    sad: 0.25,
+    disgusted: 0.2,
+    angry: 0.15,
+  };
 
   useEffect(() => {
     const updateActivity = () => {
@@ -56,67 +72,101 @@ export function useWebcam() {
           streamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
-            videoRef.current.play();
+            videoRef.current.play().catch((playError: DOMException) => {
+              // React development remounts and camera source changes can cancel
+              // an in-flight play request. This cancellation is harmless.
+              if (playError.name !== 'AbortError') {
+                console.error('Unable to start webcam preview:', playError);
+              }
+            });
           }
           setHasPermission(true);
           setIsCapturing(true);
+          cameraEnabledRef.current = true;
           setCameraEnabled(true);
           setError(null);
 
-          const intervalMs = 1000 / FRAME_RATE;
+          const intervalMs = SCAN_INTERVAL_SECONDS * 1000;
           intervalRef.current = setInterval(() => {
             const video = videoRef.current;
             const canvas = canvasRef.current;
-            if (!video || !canvas || !cameraEnabled) return;
+            if (
+              !video ||
+              !canvas ||
+              !cameraEnabledRef.current ||
+              isProcessingFrame.current ||
+              Date.now() < nextAiAttemptAt.current
+            ) return;
 
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            canvas.width = 96;
-            canvas.height = 96;
-            ctx.drawImage(video, 0, 0, 96, 96);
+            // Preserve enough facial detail for OpenCV detection. Flask will
+            // resize the detected face to EfficientNetB3's 300x300 input.
+            canvas.width = 320;
+            canvas.height = 240;
+            ctx.drawImage(video, 0, 0, 320, 240);
 
             canvas.toBlob(async (blob) => {
               if (!blob) return;
+              isProcessingFrame.current = true;
               const interaction = getInteractionScore();
-              try {
-                // Convert blob to base64
-                const reader = new FileReader();
-                reader.onloadend = async () => {
+              const reader = new FileReader();
+              reader.onloadend = async () => {
+                try {
                   const base64data = reader.result as string;
                   const image = base64data.split(',')[1]; // Remove data URL prefix
                   
-                  console.log('Sending frame to AI service...');
-                  const result = await aiService.analyzeFrame(image);
-                  console.log('AI service response:', result);
+                  const result = await aiService.analyzeFrame(image, sessionId || undefined);
+                  consecutiveFailures.current = 0;
+                  nextAiAttemptAt.current = 0;
+                  const emotion = result.emotion || 'neutral';
 
                   onFrameResult({
-                    emotion: result.emotion || 'Neutral',
-                    confidence: result.emotion_confidence || 0.5,
-                    valence: 0.6, // Would come from emotion valence mapping
-                    attention: result.attention > 50,
-                    yaw: 0,
+                    emotion,
+                    confidence: result.emotion_confidence ?? 0,
+                    valence: emotionValence[emotion.toLowerCase()] ?? 0.5,
+                    attention: result.face_detected === false
+                      ? false
+                      : result.attention == null
+                        ? true
+                        : result.attention >= 0.5,
+                    yaw: result.yaw ?? 0,
+                    pitch: result.pitch ?? 0,
+                    fatigue: result.fatigue_level ?? 0,
                     interaction,
+                    face_detected: result.face_detected,
                     error: false,
                     color: result.color,
                     description: result.description,
                     class_id: result.class_id,
                     probabilities: result.probabilities,
                   });
-                };
-                reader.readAsDataURL(blob);
-              } catch (error) {
-                console.error('AI frame analysis error:', error);
-                onFrameResult({
-                  emotion: 'Neutral',
-                  confidence: 0.5,
-                  valence: 0.6,
-                  attention: true,
-                  yaw: 0,
-                  interaction: getInteractionScore(),
-                  error: true,
-                });
-              }
+                } catch (error) {
+                  console.error('AI frame analysis error:', error);
+                  consecutiveFailures.current += 1;
+                  const retryDelay = Math.min(
+                    30000,
+                    2000 * (2 ** (consecutiveFailures.current - 1))
+                  );
+                  nextAiAttemptAt.current = Date.now() + retryDelay;
+                  onFrameResult({
+                    emotion: 'Neutral',
+                    confidence: 0,
+                    valence: 0.5,
+                    attention: true,
+                    yaw: 0,
+                    interaction,
+                    error: true,
+                  });
+                } finally {
+                  isProcessingFrame.current = false;
+                }
+              };
+              reader.onerror = () => {
+                isProcessingFrame.current = false;
+              };
+              reader.readAsDataURL(blob);
             }, 'image/jpeg', 0.7);
           }, intervalMs);
         })
@@ -129,15 +179,17 @@ export function useWebcam() {
           }
         });
     },
-    [cameraEnabled, getInteractionScore]
+    [getInteractionScore, sessionId]
   );
 
   const toggleCamera = useCallback(() => {
     if (cameraEnabled) {
       streamRef.current?.getVideoTracks().forEach((t) => { t.enabled = false; });
+      cameraEnabledRef.current = false;
       setCameraEnabled(false);
     } else {
       streamRef.current?.getVideoTracks().forEach((t) => { t.enabled = true; });
+      cameraEnabledRef.current = true;
       setCameraEnabled(true);
     }
   }, [cameraEnabled]);

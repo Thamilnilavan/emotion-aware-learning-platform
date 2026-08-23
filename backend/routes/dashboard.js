@@ -6,6 +6,7 @@ const Course = require('../models/Course');
 const Notification = require('../models/Notification');
 const { verifyToken } = require('../middleware/auth');
 const { requireRole } = require('../middleware/roleCheck');
+const { calculateCourseProgress } = require('../utils/progress');
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get('/student/progress', verifyToken, requireRole('student'), async (req,
   try {
     const sessions = await Session.find({
       userId: req.user.id,
-      status: 'completed',
+      status: { $in: ['active', 'completed'] },
     }).lean();
 
     const user = await User.findById(req.user.id);
@@ -28,12 +29,12 @@ router.get('/student/progress', verifyToken, requireRole('student'), async (req,
 
     const courseProgress = enrolledCourses.map(course => {
       const courseSessions = sessions.filter(s => s.courseId?.toString() === course._id.toString());
-      const progress = courseSessions.length > 0 ? Math.min(100, (courseSessions.length / 10) * 100) : 0;
+      const progress = calculateCourseProgress(course, courseSessions);
       return {
         courseId: course._id,
         title: course.title,
-        progress: Math.round(progress),
-        sessionsCompleted: courseSessions.length,
+        progress,
+        sessionsCompleted: courseSessions.filter((session) => session.status === 'completed').length,
       };
     });
 
@@ -43,7 +44,7 @@ router.get('/student/progress', verifyToken, requireRole('student'), async (req,
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
       const daySessions = sessions.filter((s) => {
-        const sd = new Date(s.endTime).toISOString().split('T')[0];
+        const sd = new Date(s.endTime || s.startTime).toISOString().split('T')[0];
         return sd === dateStr;
       });
       const minutes = daySessions.reduce((sum, s) => sum + (s.durationSeconds || 0), 0) / 60;
@@ -55,7 +56,7 @@ router.get('/student/progress', verifyToken, requireRole('student'), async (req,
       totalStudyMinutes,
       courseProgress,
       weeklyHours,
-      totalSessions: sessions.length,
+      totalSessions: sessions.filter((session) => session.status === 'completed').length,
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

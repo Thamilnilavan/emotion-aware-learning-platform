@@ -11,10 +11,23 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'emotion-ai-secret-key-2026')
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 5001))
+    PORT = int(os.getenv('PORT') or os.getenv('FLASK_PORT') or 5000)
     
     # Model Configuration
-    MODEL_PATH = os.path.join(os.path.dirname(__file__), 'model', 'final_emotion_model.keras')
+    MODEL_DIRECTORY = os.path.join(
+        os.path.dirname(__file__), 'model', 'Eduvo_EfficientNetB3_RAFDB'
+    )
+    _configured_model_path = os.getenv('MODEL_PATH')
+    MODEL_PATH = (
+        _configured_model_path
+        if _configured_model_path and os.path.isabs(_configured_model_path)
+        else os.path.join(os.path.dirname(__file__), _configured_model_path)
+        if _configured_model_path
+        # The training model card identifies stage 3 as the best checkpoint.
+        else os.path.join(MODEL_DIRECTORY, 'stage3_best.keras')
+    )
+    MODEL_PATH = os.path.normpath(MODEL_PATH)
+    MODEL_CARD_PATH = os.path.join(MODEL_DIRECTORY, 'model_card.json')
     MODEL_INPUT_SIZE = (300, 300)  # EfficientNet-B3 input size
     
     # MediaPipe Configuration

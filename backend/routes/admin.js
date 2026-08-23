@@ -1,11 +1,16 @@
 const express = require('express');
 const crypto = require('crypto');
+const os = require('os');
 const axios = require('axios');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const { Parser } = require('json2csv');
 const User = require('../models/User');
 const Session = require('../models/Session');
+const EmotionPrediction = require('../models/EmotionPrediction');
+const Notification = require('../models/Notification');
+const SystemSetting = require('../models/SystemSetting');
+const DeletionRequest = require('../models/DeletionRequest');
 const { verifyToken } = require('../middleware/auth');
 const { requireRole } = require('../middleware/roleCheck');
 
@@ -89,6 +94,13 @@ router.post(
 
 router.put('/users/:id', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid user id' });
+    if (req.body.role !== undefined && !['student', 'teacher', 'admin'].includes(req.body.role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+    if (String(req.params.id) === String(req.user.id) && req.body.isActive === false) {
+      return res.status(400).json({ success: false, message: 'You cannot deactivate your own account' });
+    }
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -107,6 +119,8 @@ router.put('/users/:id', async (req, res) => {
 
 router.delete('/users/:id', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid user id' });
+    if (String(req.params.id) === String(req.user.id)) return res.status(400).json({ success: false, message: 'You cannot deactivate your own account' });
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -184,6 +198,9 @@ router.get('/system', async (req, res) => {
         activeUsers,
         totalSessions,
         activeSessions,
+        memoryUsagePercent: Math.round(((os.totalmem() - os.freemem()) / os.totalmem()) * 100),
+        systemLoadPercent: Math.min(100, Math.round((os.loadavg()[0] / Math.max(os.cpus().length, 1)) * 100)),
+        uptimeSeconds: Math.round(process.uptime()),
       },
       timestamp: new Date().toISOString(),
     });
@@ -287,29 +304,42 @@ router.get('/ai-monitoring', async (req, res) => {
     let aiGatewayStatus = 'offline';
     let aiGatewayResponseTime = null;
     let servicesStatus = {};
+    let model = null;
+    // Use the same gateway as live frame analysis. AI_SERVICE_URL is retained
+    // only as a backwards-compatible fallback.
+    const aiBaseUrl = process.env.AI_GATEWAY_URL || process.env.AI_SERVICE_URL || 'http://localhost:5000';
 
     try {
       const start = Date.now();
-      await axios.get(`${process.env.AI_GATEWAY_URL}/health`, { timeout: 5000 });
+      const health = await axios.get(`${aiBaseUrl}/health`, { timeout: 5000 });
       aiGatewayResponseTime = Date.now() - start;
       aiGatewayStatus = 'online';
+      servicesStatus = health.data;
     } catch (error) {
       aiGatewayStatus = 'offline';
     }
 
     try {
-      const statusResponse = await axios.get(`${process.env.AI_GATEWAY_URL}/api/service-status`, { timeout: 5000 });
-      servicesStatus = statusResponse.data;
+      const statusResponse = await axios.get(`${aiBaseUrl}/model/info`, { timeout: 5000 });
+      model = statusResponse.data;
     } catch (error) {
-      servicesStatus = { error: 'Could not fetch service status' };
+      model = null;
     }
 
-    // Get prediction count from sessions
+    // Read actual frame predictions rather than treating sessions as predictions.
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayPredictions = await Session.countDocuments({
-      createdAt: { $gte: today }
-    });
+    const [todayPredictions, latestPrediction] = await Promise.all([
+      EmotionPrediction.countDocuments({ timestamp: { $gte: today } }),
+      EmotionPrediction.findOne()
+        .sort({ timestamp: -1 })
+        .populate('user_id', 'name')
+        .lean(),
+    ]);
+    const latestTimestamp = latestPrediction?.timestamp
+      ? new Date(latestPrediction.timestamp).getTime()
+      : 0;
+    const isLive = latestTimestamp > 0 && Date.now() - latestTimestamp <= 15000;
 
     return res.json({
       success: true,
@@ -318,8 +348,17 @@ router.get('/ai-monitoring', async (req, res) => {
         responseTime: aiGatewayResponseTime,
       },
       services: servicesStatus,
+      model,
       predictions: {
         today: todayPredictions,
+        latest: latestPrediction ? {
+          emotion: latestPrediction.emotion,
+          confidence: latestPrediction.emotion_confidence,
+          faceDetected: latestPrediction.face_detected,
+          timestamp: latestPrediction.timestamp,
+          studentName: latestPrediction.user_id?.name || 'Student',
+        } : null,
+        isLive,
       },
       timestamp: new Date().toISOString(),
     });
@@ -330,18 +369,19 @@ router.get('/ai-monitoring', async (req, res) => {
 
 router.get('/datasets', async (req, res) => {
   try {
-    let datasetsStatus = {};
-    
+    let model = null;
+    const aiBaseUrl = process.env.AI_SERVICE_URL || process.env.AI_GATEWAY_URL || 'http://localhost:5000';
     try {
-      const response = await axios.get(`${process.env.AI_GATEWAY_URL}/api/datasets/status`, { timeout: 5000 });
-      datasetsStatus = response.data;
+      const response = await axios.get(`${aiBaseUrl}/model/info`, { timeout: 5000 });
+      model = response.data;
     } catch (error) {
-      datasetsStatus = { error: 'Could not fetch dataset status' };
+      model = null;
     }
 
     return res.json({
       success: true,
-      datasets: datasetsStatus,
+      datasets: [{ name: 'RAF-DB', purpose: 'Facial-expression model training', classes: 7, status: model ? 'available' : 'configured' }],
+      model,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -387,18 +427,11 @@ router.get('/research', async (req, res) => {
 
 router.get('/notifications', async (req, res) => {
   try {
-    // This would typically fetch from a notifications collection
-    // For now, return system-generated notifications
-    const notifications = [
-      {
-        id: '1',
-        type: 'system',
-        title: 'System Update',
-        message: 'AI services have been updated to version 2.0',
-        createdAt: new Date().toISOString(),
-        read: false,
-      },
-    ];
+    const notifications = await Notification.find({ senderId: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('recipientId', 'name email role')
+      .lean();
 
     return res.json({
       success: true,
@@ -411,21 +444,28 @@ router.get('/notifications', async (req, res) => {
 
 router.post('/notifications', async (req, res) => {
   try {
-    const { title, message, type } = req.body;
-    
-    // This would typically save to a notifications collection
-    const notification = {
-      id: Date.now().toString(),
-      type: type || 'system',
-      title,
-      message,
-      createdAt: new Date().toISOString(),
-      read: false,
-    };
+    const { title, message, targetRole } = req.body;
+    if (!String(title || '').trim() || !String(message || '').trim()) {
+      return res.status(400).json({ success: false, message: 'Title and message are required' });
+    }
+    const filter = targetRole && ['student', 'teacher', 'admin'].includes(targetRole)
+      ? { role: targetRole, isActive: true, _id: { $ne: req.user.id } }
+      : { isActive: true, _id: { $ne: req.user.id } };
+    const recipients = await User.find(filter).select('_id');
+    const documents = recipients.map((user) => ({
+      recipientId: user._id,
+      senderId: req.user.id,
+      type: 'system',
+      title: String(title).trim(),
+      message: String(message).trim(),
+      metadata: { targetRole: targetRole || 'all' },
+    }));
+    const notifications = documents.length ? await Notification.insertMany(documents) : [];
 
     return res.json({
       success: true,
-      notification,
+      delivered: notifications.length,
+      notification: notifications[0] || null,
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -439,8 +479,12 @@ router.get('/privacy', async (req, res) => {
     const activeUsers = await User.countDocuments({ isActive: true });
     const totalSessions = await Session.countDocuments();
     
-    // Data deletion requests (would need a separate collection)
-    const deletionRequests = [];
+    const deletionRequests = await DeletionRequest.find()
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('userId', 'name email role')
+      .lean();
+    const privacySetting = await SystemSetting.findOne({ key: 'privacy' }).lean();
 
     return res.json({
       success: true,
@@ -449,7 +493,7 @@ router.get('/privacy', async (req, res) => {
         activeUsers,
         totalSessions,
         deletionRequests,
-        dataRetentionDays: process.env.DATA_RETENTION_DAYS || 180,
+        dataRetentionDays: privacySetting?.value?.dataRetentionDays || Number(process.env.DATA_RETENTION_DAYS) || 180,
         webcamDataStored: false, // Never stored
       },
     });
@@ -461,15 +505,18 @@ router.get('/privacy', async (req, res) => {
 router.post('/privacy/delete-request', async (req, res) => {
   try {
     const { userId, reason } = req.body;
-    
-    // This would create a data deletion request
-    const request = {
-      id: Date.now().toString(),
+    if (!mongoose.isValidObjectId(userId) || !String(reason || '').trim()) {
+      return res.status(400).json({ success: false, message: 'A valid user and reason are required' });
+    }
+    const user = await User.findById(userId).select('_id');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const existing = await DeletionRequest.findOne({ userId, status: 'pending' });
+    if (existing) return res.status(409).json({ success: false, message: 'A pending request already exists for this user' });
+    const request = await DeletionRequest.create({
       userId,
-      reason,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
+      requestedBy: req.user.id,
+      reason: String(reason).trim(),
+    });
 
     return res.json({
       success: true,
@@ -480,12 +527,30 @@ router.post('/privacy/delete-request', async (req, res) => {
   }
 });
 
+router.put('/privacy/delete-request/:id', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['approved', 'rejected', 'completed'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid request status' });
+    }
+    const request = await DeletionRequest.findByIdAndUpdate(
+      req.params.id,
+      { status, reviewedAt: new Date(), reviewedBy: req.user.id },
+      { new: true }
+    );
+    if (!request) return res.status(404).json({ success: false, message: 'Deletion request not found' });
+    return res.json({ success: true, request });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/settings', async (req, res) => {
   try {
-    const settings = {
+    const defaults = {
       general: {
-        siteName: process.env.SITE_NAME || 'EmoLearn',
-        supportEmail: process.env.SUPPORT_EMAIL || 'support@emolearn.com',
+        siteName: process.env.SITE_NAME || 'Eduvo',
+        supportEmail: process.env.SUPPORT_EMAIL || 'support@eduvo.app',
       },
       ai: {
         confidenceThreshold: process.env.CONFIDENCE_THRESHOLD || 0.55,
@@ -498,6 +563,11 @@ router.get('/settings', async (req, res) => {
       },
     };
 
+    const stored = await SystemSetting.find({ key: { $in: ['general', 'ai', 'privacy'] } }).lean();
+    const settings = stored.reduce((result, item) => {
+      result[item.key] = { ...result[item.key], ...item.value };
+      return result;
+    }, defaults);
     return res.json({
       success: true,
       settings,
@@ -510,12 +580,24 @@ router.get('/settings', async (req, res) => {
 router.put('/settings', async (req, res) => {
   try {
     const { section, settings } = req.body;
-    
-    // This would update environment variables or database settings
-    // For now, just return success
+    if (!['general', 'ai', 'privacy'].includes(section) || !settings || typeof settings !== 'object') {
+      return res.status(400).json({ success: false, message: 'A valid settings section is required' });
+    }
+    const allowed = {
+      general: ['siteName', 'supportEmail'],
+      ai: ['confidenceThreshold', 'engagementThreshold', 'aiGatewayUrl'],
+      privacy: ['dataRetentionDays', 'anonymizeData'],
+    }[section];
+    const clean = Object.fromEntries(Object.entries(settings).filter(([key]) => allowed.includes(key)));
+    const saved = await SystemSetting.findOneAndUpdate(
+      { key: section },
+      { value: clean, updatedBy: req.user.id, updatedAt: new Date() },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
     return res.json({
       success: true,
       message: 'Settings updated successfully',
+      settings: saved.value,
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

@@ -2,12 +2,13 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
 import os
-os.environ['TF_USE_LEGACY_KERAS'] = '1'
 import logging
+import numpy as np
 
 # Import configuration and utilities
 from config import Config
 from utils import ImagePreprocessor, EmotionPredictor
+from attention_tracker import AttentionTracker
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ print("=" * 50)
 
 preprocessor = ImagePreprocessor()
 predictor = EmotionPredictor()
+attention_tracker = AttentionTracker()
 
 print(f"Model loaded: {predictor.is_model_loaded()}")
 print(f"Model path: {Config.MODEL_PATH}")
@@ -100,6 +102,8 @@ def predict():
                 "error": "No image provided"
             }), 400
         
+        original_frame = np.array(preprocessor.decode_base64_image(data['image']).convert('RGB'))
+
         # Preprocess image
         preprocessed_img, is_valid = preprocessor.preprocess_image(data['image'])
         
@@ -111,6 +115,7 @@ def predict():
         
         # Predict emotion
         result = predictor.predict(preprocessed_img)
+        attention_result = attention_tracker.process_frame(original_frame)
         
         if 'error' in result:
             return jsonify({
@@ -121,6 +126,7 @@ def predict():
         return jsonify({
             "success": True,
             **result,
+            **attention_result,
             "timestamp": datetime.now().isoformat()
         })
         

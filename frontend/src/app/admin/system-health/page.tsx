@@ -14,10 +14,13 @@ function SystemHealthContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    adminAPI.getSystemHealth()
-      .then((res) => setSystemData(res.data))
+    const load = () => adminAPI.getSystemHealth()
+      .then(setSystemData)
       .catch(() => toast.error('Failed to load system health data'))
       .finally(() => setLoading(false));
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
@@ -81,7 +84,7 @@ function SystemHealthContent() {
                 <Activity className="h-5 w-5 text-primary" />
                 <p className="text-sm text-body">System Status</p>
               </div>
-              <p className="text-lg font-bold text-heading">Operational</p>
+              <p className="text-lg font-bold text-heading">{systemData?.database === 'connected' ? 'Operational' : 'Degraded'}</p>
             </div>
           </div>
 
@@ -128,7 +131,7 @@ function SystemHealthContent() {
             </div>
           </div>
 
-          {/* Resource Usage (Placeholder) */}
+          {/* Live resource usage */}
           <div className="grid gap-4 md:grid-cols-3">
             <div className="glass-card p-6">
               <div className="mb-4 flex items-center gap-3">
@@ -136,9 +139,9 @@ function SystemHealthContent() {
                 <h3 className="font-bold text-heading">CPU Usage</h3>
               </div>
               <div className="h-2 rounded-full bg-muted">
-                <div className="h-2 rounded-full bg-primary w-1/3" />
+                <div className="h-2 rounded-full bg-primary" style={{width:`${metrics?.systemLoadPercent ?? 0}%`}} />
               </div>
-              <p className="mt-2 text-sm text-body">33% Average</p>
+              <p className="mt-2 text-sm text-body">{metrics?.systemLoadPercent ?? 0}% current load</p>
             </div>
 
             <div className="glass-card p-6">
@@ -147,20 +150,20 @@ function SystemHealthContent() {
                 <h3 className="font-bold text-heading">Memory Usage</h3>
               </div>
               <div className="h-2 rounded-full bg-muted">
-                <div className="h-2 rounded-full bg-primary w-1/2" />
+                <div className="h-2 rounded-full bg-primary" style={{width:`${metrics?.memoryUsagePercent ?? 0}%`}} />
               </div>
-              <p className="mt-2 text-sm text-body">50% Average</p>
+              <p className="mt-2 text-sm text-body">{metrics?.memoryUsagePercent ?? 0}% used</p>
             </div>
 
             <div className="glass-card p-6">
               <div className="mb-4 flex items-center gap-3">
                 <Database className="h-5 w-5 text-primary" />
-                <h3 className="font-bold text-heading">Storage Usage</h3>
+                <h3 className="font-bold text-heading">API Uptime</h3>
               </div>
               <div className="h-2 rounded-full bg-muted">
-                <div className="h-2 rounded-full bg-primary w-1/4" />
+                <div className="h-2 rounded-full bg-primary w-full" />
               </div>
-              <p className="mt-2 text-sm text-body">25% Used</p>
+              <p className="mt-2 text-sm text-body">{Math.floor((metrics?.uptimeSeconds ?? 0) / 3600)}h {Math.floor(((metrics?.uptimeSeconds ?? 0) % 3600) / 60)}m</p>
             </div>
           </div>
         </main>

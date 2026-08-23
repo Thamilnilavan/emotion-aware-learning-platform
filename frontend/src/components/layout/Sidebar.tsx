@@ -26,10 +26,6 @@ const studentItems: NavItem[] = [
   { href: '/student/achievements', label: 'Achievements', icon: <Award className="h-5 w-5" /> },
   { href: '/student/recommendations', label: 'Recommendations', icon: <Target className="h-5 w-5" /> },
   { href: '/student/planner', label: 'Planner', icon: <Calendar className="h-5 w-5" /> },
-  { href: '/student/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
-  { href: '/student/privacy', label: 'Privacy Center', icon: <Shield className="h-5 w-5" /> },
-  { href: '/student/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
-  { href: '/student/settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
 ];
 
 const teacherItems: NavItem[] = [
@@ -41,6 +37,7 @@ const teacherItems: NavItem[] = [
   { href: '/teacher/emotions', label: 'Emotions', icon: <BarChart3 className="h-5 w-5" /> },
   { href: '/teacher/engagement-reports', label: 'Reports', icon: <BarChart3 className="h-5 w-5" /> },
   { href: '/teacher/courses', label: 'Manage', icon: <BookOpen className="h-5 w-5" /> },
+  { href: '/teacher/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
 ];
 
 const adminItems: NavItem[] = [
@@ -53,6 +50,7 @@ const adminItems: NavItem[] = [
   { href: '/admin/privacy', label: 'Privacy', icon: <Shield className="h-5 w-5" /> },
   { href: '/admin/system-health', label: 'System Health', icon: <Activity className="h-5 w-5" /> },
   { href: '/admin/settings', label: 'Settings', icon: <Settings className="h-5 w-5" /> },
+  { href: '/admin/notifications', label: 'Notifications', icon: <Bell className="h-5 w-5" /> },
 ];
 
 export function Sidebar() {
@@ -69,7 +67,7 @@ export function Sidebar() {
     <>
       <aside
         className={cn(
-          'hidden lg:flex flex-col bg-dark-card text-white transition-all duration-300 min-h-[calc(100vh-4rem)]',
+          'hidden lg:flex flex-col bg-dark-card text-white transition-all duration-300 min-h-[calc(100vh-4rem)] h-[calc(100vh-4rem)] sticky top-16 overflow-y-auto',
           collapsed ? 'w-16' : 'w-64'
         )}
       >

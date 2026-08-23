@@ -1,13 +1,12 @@
-import axios from 'axios';
+import api from '@/lib/axios';
 
-// Get base URL from env or use default localhost
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+export interface AssistantMessage {
+  _id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt?: string;
+}
 
 export const assistantAPI = {
-  chat: async (messages: { role: string; content: string }[]) => {
-    return axios.post(`${API_URL}/assistant/chat`, { messages }, {
-      // You can add headers here if we need auth for the assistant later
-      withCredentials: true 
-    });
-  },
+  chat: (message: string) => api.post<{ success: boolean; response: string }>('/assistant/chat', { message }),
 };

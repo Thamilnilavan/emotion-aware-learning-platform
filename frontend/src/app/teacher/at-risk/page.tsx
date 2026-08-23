@@ -15,7 +15,7 @@ function AtRiskContent() {
 
   useEffect(() => {
     teacherAPI.getAtRiskStudents()
-      .then((res) => setAtRiskData(res.data))
+      .then(setAtRiskData)
       .catch(() => toast.error('Failed to load at-risk students'))
       .finally(() => setLoading(false));
   }, []);
@@ -23,6 +23,17 @@ function AtRiskContent() {
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
 
   const atRiskStudents = atRiskData?.atRiskStudents as Array<Record<string, any>> || [];
+
+  const sendIntervention = async (student: Record<string, any>) => {
+    try {
+      await teacherAPI.sendFeedback({
+        studentId: String(student.student._id),
+        type: 'encouragement',
+        message: 'Your recent learning analytics indicate reduced engagement. Please review your study plan, revisit difficult material, or take a short restorative break before continuing.',
+      });
+      toast.success(`Support message sent to ${student.student.name}`);
+    } catch { toast.error('Failed to send support message'); }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
@@ -95,7 +106,7 @@ function AtRiskContent() {
                     </div>
                   </div>
 
-                  <button className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
+                  <button onClick={() => sendIntervention(student)} className="w-full rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">
                     Send Intervention
                   </button>
                 </div>

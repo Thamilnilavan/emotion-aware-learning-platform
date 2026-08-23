@@ -28,8 +28,8 @@ const getFullVideoUrl = (url: string) => {
     return url;
   }
   // Prepend backend URL for local video files
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  return `${backendUrl}${url}`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
+  return `${apiUrl.replace(/\/api\/?$/, '')}${url}`;
 };
 
 export function VideoPlayer({

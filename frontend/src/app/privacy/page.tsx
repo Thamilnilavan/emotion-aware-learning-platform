@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         <div className="glass-card space-y-6 p-8 text-body">
           <section>
             <h2 className="mb-2 text-lg font-bold text-heading">Data Collection</h2>
-            <p>EmoLearn collects emotion labels, attention scores, and engagement metrics during learning sessions. Raw webcam video is processed in server memory only and is never stored to disk.</p>
+            <p>Eduvo collects emotion labels, attention scores, and engagement metrics during learning sessions. Raw webcam video is processed in server memory only and is never stored to disk.</p>
           </section>
           <section>
             <h2 className="mb-2 text-lg font-bold text-heading">Consent</h2>

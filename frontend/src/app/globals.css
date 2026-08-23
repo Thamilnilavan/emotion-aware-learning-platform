@@ -1,21 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-background: #e9eaf2;
-  --color-dark-card: #24223d;
-  --color-primary: #a556f0;
-  --color-primary-hover: #9333ea;
-  --color-secondary: #c084fc;
+  --color-background: rgba(247, 251, 233, 0.78);
+  --color-dark-card: #23212c;
+  --color-primary: #23212c;
+  --color-primary-hover: #393644;
+  --color-secondary: #f1fec8;
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
-  --color-heading: #1a1a36;
-  --color-body: #68687d;
-  --color-glass: rgba(255, 255, 255, 0.65);
-  --font-sans: 'Plus Jakarta Sans', Inter, Outfit, Poppins, sans-serif;
+  --color-heading: #23212c;
+  --color-body: #514f5b;
+  --color-glass: rgba(255, 255, 255, 0.56);
+  --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --radius-card: 24px;
-  --shadow-soft: 0 20px 60px rgba(0, 0, 0, 0.08);
+  --shadow-soft: 0 14px 38px rgba(35, 33, 44, 0.09);
 }
 
 * {
@@ -28,22 +27,285 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-background);
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background: #23212c;
+  background-attachment: fixed;
   color: var(--color-body);
   -webkit-font-smoothing: antialiased;
 }
 
-.glass-card {
-  background: var(--color-glass);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+/* Legacy pages were designed with dark typography on a light canvas. Give
+   them a translucent vanilla surface instead of placing black text directly
+   over the nebula. The cosmic background remains subtly visible beneath it. */
+.min-h-screen.bg-background {
+  color: #35323e;
+  background:
+    linear-gradient(rgba(247, 251, 233, 0.94), rgba(241, 254, 200, 0.9));
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  backdrop-filter: blur(10px) saturate(115%);
+}
+
+/* Ensure common legacy dark-text utilities remain readable wherever a page
+   does intentionally use the cosmic surface without a light content card. */
+.universe-shell main > header .text-heading,
+.universe-shell main > header .text-gray-900,
+.universe-shell main > header .text-black {
+  color: #f1fec8;
+  text-shadow: 0 2px 18px rgba(15, 13, 22, 0.55);
+}
+
+.universe-shell main > header .text-body,
+.universe-shell main > header .text-gray-600,
+.universe-shell main > header .text-gray-700 {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  z-index: -2;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(20, 18, 28, 0.34), rgba(20, 18, 28, 0.48)),
+    url('/images/cosmic-nebula-bg.png');
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.9;
+  background-image:
+    radial-gradient(circle, rgba(241, 254, 200, 0.95) 0 1px, transparent 1.4px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.72) 0 0.7px, transparent 1.1px),
+    radial-gradient(circle, rgba(241, 254, 200, 0.62) 0 1.4px, transparent 1.8px);
+  background-position: 0 0, 37px 61px, 91px 23px;
+  background-size: 127px 127px, 83px 83px, 211px 211px;
+  animation: universe-drift 70s linear infinite;
+}
+
+.universe-shell {
+  position: relative;
+  min-height: 100vh;
+  background: transparent;
+}
+
+/* Public pages reveal the shared nebula while retaining a dark veil for
+   accessible white typography and calm visual hierarchy. */
+.public-cosmic-page {
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(80, 49, 102, 0.14), transparent 42rem),
+    linear-gradient(180deg, rgba(5, 5, 8, 0.38), rgba(5, 5, 8, 0.72));
+}
+
+.universe-shell main {
+  background: transparent;
+}
+
+.universe-page-title {
+  color: #f1fec8;
+  text-shadow: 0 2px 22px rgba(241, 254, 200, 0.16);
+}
+
+.universe-page-copy {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+@keyframes universe-drift {
+  from { background-position: 0 0, 37px 61px, 91px 23px; }
+  to { background-position: 127px 127px, -46px 144px, 302px 234px; }
+}
+
+@keyframes cosmic-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cosmic-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+.cosmic-orbit {
+  animation: cosmic-orbit 2.4s linear infinite;
+}
+
+.cosmic-breathe {
+  animation: cosmic-breathe 1.8s ease-in-out infinite;
+}
+
+/* A tiny open book: warm paper, a dark cloth cover, and pages that turn from
+   right to left. It scales with the shared LoadingSpinner size variants. */
+.book-loader {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  perspective: 220px;
+  filter: drop-shadow(0 5px 5px rgba(15, 13, 22, 0.24));
+}
+
+.book-loader__cover,
+.book-loader__paper,
+.book-loader__page {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  width: 50%;
+}
+
+.book-loader__cover {
+  inset: 2% 0 0;
+  width: 100%;
+  border-radius: 8% 8% 12% 12%;
+  background: #23212c;
+  transform: translateY(5%);
+}
+
+.book-loader__paper {
+  z-index: 1;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 21%, rgba(86, 72, 48, 0.12) 22% 24%),
+    linear-gradient(135deg, #fffdf2, #f1e6c7);
+  box-shadow: inset 0 0 0 1px rgba(91, 72, 43, 0.14);
+}
+
+.book-loader__paper--left {
+  left: 2%;
+  border-radius: 10% 2% 3% 10%;
+  transform: skewY(3deg);
+}
+
+.book-loader__paper--right {
+  right: 2%;
+  border-radius: 2% 10% 10% 3%;
+  transform: skewY(-3deg);
+}
+
+.book-loader__page {
+  z-index: 2;
+  right: 2%;
+  border-radius: 2% 10% 10% 2%;
+  background: linear-gradient(90deg, #eadbb9, #fffdf2 20%, #f5e9c9);
+  box-shadow: 1px 0 1px rgba(82, 63, 38, 0.16);
+  transform: rotateY(0deg) skewY(-3deg);
+  transform-origin: left center;
+  animation: book-page-turn 1.8s infinite ease-in-out;
+}
+
+.book-loader__page--two { animation-delay: 0.6s; }
+.book-loader__page--three { animation-delay: 1.2s; }
+
+.book-loader__spine {
+  position: absolute;
+  z-index: 4;
+  top: 10%;
+  bottom: 4%;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(transparent, rgba(69, 53, 34, 0.48), transparent);
+  transform: translateX(-50%);
+}
+
+@keyframes book-page-turn {
+  0%, 18% { transform: rotateY(0deg) skewY(-3deg); }
+  48%, 62% { transform: rotateY(-180deg) skewY(-3deg); }
+  100% { transform: rotateY(-180deg) skewY(-3deg); opacity: 0.35; }
+}
+
+.glass-card,
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(255, 255, 255, 0.88), transparent 38%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(241, 254, 200, 0.62));
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-soft);
+  box-shadow:
+    0 18px 48px rgba(15, 13, 22, 0.18),
+    0 1px 0 rgba(241, 254, 200, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    inset 0 -1px 0 rgba(35, 33, 44, 0.04);
+}
+
+.glass-card::before,
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 1px;
+  pointer-events: none;
+  border-radius: calc(var(--radius-card) - 2px);
+  background:
+    radial-gradient(circle at 92% 10%, rgba(241, 254, 200, 0.52) 0 1px, transparent 2px),
+    radial-gradient(circle at 86% 22%, rgba(255, 255, 255, 0.72) 0 0.8px, transparent 1.8px),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.46), transparent 38%, rgba(241, 254, 200, 0.15));
+}
+
+.liquid-control {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 6px 18px rgba(35, 33, 44, 0.06);
+}
+
+.universe-panel {
+  position: relative;
+  overflow: hidden;
+  color: #f8faed;
+  background:
+    radial-gradient(circle at 82% 18%, rgba(241, 254, 200, 0.12), transparent 12rem),
+    linear-gradient(145deg, rgba(35, 33, 44, 0.98), rgba(48, 44, 60, 0.94));
+  border: 1px solid rgba(241, 254, 200, 0.15);
+  box-shadow: 0 20px 52px rgba(15, 13, 22, 0.28), inset 0 1px 0 rgba(241, 254, 200, 0.1);
+}
+
+.universe-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.58;
+  background-image:
+    radial-gradient(circle, #f1fec8 0 0.8px, transparent 1.3px),
+    radial-gradient(circle, rgba(255,255,255,.8) 0 0.6px, transparent 1px);
+  background-position: 8px 12px, 44px 28px;
+  background-size: 71px 71px, 109px 109px;
+}
+
+.universe-panel .text-heading,
+.universe-panel .text-gray-900,
+.universe-panel .text-black {
+  color: #f1fec8;
+}
+
+.universe-panel .text-body,
+.universe-panel .text-gray-600,
+.universe-panel .text-gray-700 {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after,
+  .cosmic-orbit,
+  .cosmic-breathe,
+  .book-loader__page { animation: none; }
 }
 
 .gradient-border {
   position: relative;
-  background: linear-gradient(135deg, #a556f0, #c084fc);
+  background: linear-gradient(135deg, #23212c, #f1fec8);
   padding: 1px;
   border-radius: var(--radius-card);
 }
@@ -82,7 +344,7 @@ body {
 
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(165, 86, 240, 0.5) rgba(255, 255, 255, 0.1);
+  scrollbar-color: rgba(35, 33, 44, 0.48) rgba(241, 254, 200, 0.45);
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -95,11 +357,11 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(165, 86, 240, 0.5);
+  background: rgba(35, 33, 44, 0.48);
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(165, 86, 240, 0.7);
+  background: rgba(35, 33, 44, 0.7);
 }

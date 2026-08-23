@@ -15,7 +15,7 @@ function ClassOverviewContent() {
 
   useEffect(() => {
     teacherAPI.getClassOverview()
-      .then((res) => setClassData(res.data))
+      .then(setClassData)
       .catch(() => toast.error('Failed to load class overview'))
       .finally(() => setLoading(false));
   }, []);

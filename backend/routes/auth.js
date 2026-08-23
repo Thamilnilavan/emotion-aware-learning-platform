@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
@@ -117,7 +118,7 @@ router.post(
 
 router.get('/me', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('-password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -129,7 +130,7 @@ router.get('/me', verifyToken, async (req, res) => {
 
 router.put('/consent', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('-password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -140,14 +141,21 @@ router.put('/consent', verifyToken, async (req, res) => {
     if (attentionConsent !== undefined) user.consent.attentionConsent = attentionConsent;
     if (retentionConsent !== undefined) user.consent.retentionConsent = retentionConsent;
 
-    if (
+    const previouslyGiven = user.consent.given;
+    const allRequiredConsentGiven = Boolean(
       user.consent.webcamConsent &&
       user.consent.emotionConsent &&
       user.consent.attentionConsent &&
       user.consent.retentionConsent
-    ) {
-      user.consent.given = true;
+    );
+
+    // Recompute the aggregate flag on every update. This allows a learner to
+    // revoke any consent option instead of leaving an old `given: true` value.
+    user.consent.given = allRequiredConsentGiven;
+    if (allRequiredConsentGiven && !previouslyGiven) {
       user.consent.givenAt = Date.now();
+    } else if (!allRequiredConsentGiven) {
+      user.consent.givenAt = undefined;
     }
 
     await user.save();
@@ -159,7 +167,7 @@ router.put('/consent', verifyToken, async (req, res) => {
 
 router.put('/preferences', verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('-password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -184,7 +192,7 @@ router.put('/preferences', verifyToken, async (req, res) => {
 router.delete('/data', verifyToken, requireRole('student'), async (req, res) => {
   try {
     const result = await Session.deleteMany({ userId: req.user.id });
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('-password');
     user.consent = {
       given: false,
       givenAt: null,
@@ -205,18 +213,61 @@ router.delete('/data', verifyToken, requireRole('student'), async (req, res) => 
 });
 
 router.get('/notifications', verifyToken, async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database is temporarily unavailable. Please try again shortly.',
+    });
+  }
+
   try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
     const notifications = await Notification.find({ recipientId: req.user.id })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate('senderId', 'name email')
+      .maxTimeMS(5000)
       .lean();
 
-    await Notification.updateMany(
+    const [totalCount, unreadCount] = await Promise.all([
+      Notification.countDocuments({ recipientId: req.user.id }),
+      Notification.countDocuments({ recipientId: req.user.id, isRead: false }),
+    ]);
+
+    return res.json({ 
+      success: true, 
+      notifications,
+      unreadCount,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount,
+        limit
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.put('/notifications/read', verifyToken, async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database is temporarily unavailable. Please try again shortly.',
+    });
+  }
+
+  try {
+    const result = await Notification.updateMany(
       { recipientId: req.user.id, isRead: false },
       { isRead: true }
     );
-
-    return res.json({ success: true, notifications });
+    return res.json({ success: true, updated: result.modifiedCount });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

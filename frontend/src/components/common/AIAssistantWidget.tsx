@@ -51,13 +51,7 @@ export function AIAssistantWidget() {
     setIsLoading(true);
 
     try {
-      // Create context payload (omitting the id for the API)
-      const payload = messages.concat(userMessage).map(m => ({
-        role: m.role,
-        content: m.content
-      }));
-
-      const res = await assistantAPI.chat(payload);
+      const res = await assistantAPI.chat(userMessage.content);
       
       if (res.data.success) {
         setMessages(prev => [

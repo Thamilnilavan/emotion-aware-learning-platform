@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 import os
-os.environ['TF_USE_LEGACY_KERAS'] = '1'
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.models import load_model
@@ -10,13 +9,14 @@ import os
 import base64
 from PIL import Image
 import io
+from config import Config
 
 app = Flask(__name__)
 CORS(app)
 
 # Configuration
-MODEL_PATH = 'model/final_emotion_model.keras'
-IMG_SIZE = (224, 224)
+MODEL_PATH = Config.MODEL_PATH
+IMG_SIZE = Config.MODEL_INPUT_SIZE
 EMOTIONS = ['happy', 'sad', 'angry', 'neutral', 'surprised', 'fearful', 'disgusted']
 
 # Load model
@@ -27,7 +27,7 @@ def load_trained_model():
     global model
     try:
         if os.path.exists(MODEL_PATH):
-            model = load_model(MODEL_PATH)
+            model = load_model(MODEL_PATH, compile=False)
             print(f"Model loaded successfully from {MODEL_PATH}")
             return True
         else:

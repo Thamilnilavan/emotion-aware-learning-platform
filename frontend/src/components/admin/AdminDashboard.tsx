@@ -11,15 +11,18 @@ import { Sidebar } from '@/components/layout/Sidebar';
 export function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState<Record<string, any> | null>(null);
   const [systemHealth, setSystemHealth] = useState<Record<string, any> | null>(null);
+  const [analytics, setAnalytics] = useState<Array<Record<string, any>>>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(() => {
     Promise.all([
       adminAPI.getDashboard(),
       adminAPI.getSystemHealth(),
-    ]).then(([dashboard, system]) => {
+      adminAPI.getAnalytics('7d'),
+    ]).then(([dashboard, system, analyticsResult]) => {
       setDashboardData(dashboard);
       setSystemHealth(system);
+      setAnalytics(analyticsResult.dailyData || []);
     }).catch((error) => {
       console.error("Admin dashboard error:", error);
       toast.error('Failed to load dashboard data');
@@ -108,8 +111,8 @@ export function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-body">AI Model Status</p>
-                  <p className={`text-lg font-bold ${health?.aiGateway === 'online' ? 'text-success' : 'text-danger'}`}>
-                    {health?.aiGateway === 'online' ? 'Running' : 'Offline'}
+                  <p className={`text-lg font-bold ${health?.aiService === 'online' ? 'text-success' : 'text-danger'}`}>
+                    {health?.aiService === 'online' ? 'Running' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -153,11 +156,12 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          {/* Engagement Trend Chart Placeholder */}
+          {/* Engagement trend */}
           <div className="mb-8 glass-card p-6">
             <h3 className="mb-4 font-bold text-heading">Engagement Trend (Last 7 Days)</h3>
-            <div className="h-48 flex items-center justify-center rounded-lg bg-muted/50">
-              <p className="text-sm text-body">Chart visualization would appear here</p>
+            <div className="flex h-52 items-end gap-3 rounded-lg bg-muted/50 p-4">
+              {analytics.map(day => <div key={String(day.date)} className="flex h-full flex-1 flex-col items-center justify-end gap-2"><span className="text-xs font-semibold text-heading">{Number(day.avgEngagement || 0)}%</span><div className="w-full max-w-12 rounded-t-lg bg-primary" style={{height:`${Math.max(3, Number(day.avgEngagement || 0))}%`}}/><span className="text-[10px] text-body">{new Date(String(day.date)).toLocaleDateString(undefined,{weekday:'short'})}</span></div>)}
+              {analytics.length === 0 && <p className="m-auto text-sm text-body">No completed session data yet.</p>}
             </div>
           </div>
 

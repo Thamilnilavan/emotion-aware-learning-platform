@@ -23,14 +23,14 @@ const emotionPredictionSchema = new mongoose.Schema({
   emotion_confidence: {
     type: Number,
     min: 0,
-    max: 100,
+    max: 1,
     required: true
   },
   attention: {
     type: Number,
     min: 0,
-    max: 100,
-    required: true
+    max: 1,
+    default: null
   },
   face_detected: {
     type: Boolean,
@@ -46,10 +46,6 @@ const emotionPredictionSchema = new mongoose.Schema({
     type: Map,
     of: Number,
     default: {}
-  },
-  image_data: {
-    type: String, // Base64 encoded image (optional)
-    required: false
   }
 }, {
   timestamps: true

@@ -67,6 +67,15 @@ export interface LearningSession {
   startTime: string;
   endTime?: string;
   durationSeconds: number;
+  overallProgress?: number;
+  contentProgress?: Array<{
+    contentIndex: number;
+    positionSeconds: number;
+    durationSeconds: number;
+    percent: number;
+    completed: boolean;
+    updatedAt: string;
+  }>;
   windows?: EngagementWindow[];
   status: string;
   summary: SessionSummary;
@@ -79,6 +88,7 @@ export interface FrameResult {
   attention: boolean;
   yaw?: number;
   pitch?: number;
+  fatigue?: number;
   interaction: number;
   face_detected?: boolean;
   demo_mode?: boolean;
@@ -97,19 +107,23 @@ export interface Intervention {
   showTimer?: boolean;
 }
 
+export interface CourseContent {
+  _id?: string;
+  contentType: 'video' | 'youtube' | 'document' | 'link';
+  title: string;
+  description?: string;
+  url: string;
+  durationMinutes: number;
+  order: number;
+}
+
 export interface Course {
   _id: string;
   title: string;
   description?: string;
   teacherId: { _id: string; name: string; email?: string } | string;
   enrolledStudents?: string[];
-  content: Array<{
-    contentType: 'video' | 'youtube' | 'document' | 'link';
-    title: string;
-    url: string;
-    durationMinutes: number;
-    order: number;
-  }>;
+  content: CourseContent[];
   integrations?: {
     zoomLink?: string;
     googleClassroomLink?: string;
@@ -120,6 +134,10 @@ export interface Course {
     alertFrequency: string;
   };
   isActive: boolean;
+  averageEngagement?: number;
+  totalSessions?: number;
+  progress?: number;
+  completedSessions?: number;
 }
 
 export interface Badge {

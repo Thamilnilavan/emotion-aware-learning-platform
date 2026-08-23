@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { sessionAPI } from '@/services/api/sessions';
 import aiService from '@/services/api/ai';
 import type { FrameResult } from '@/types';
@@ -24,20 +23,42 @@ export function useEngagement(sessionId: string | null, enabled = true) {
   const negativeCount = useRef(0);
   const windowInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const active = useRef(false);
+
+  const stopEngagement = useCallback(() => {
+    active.current = false;
+    if (windowInterval.current) {
+      clearInterval(windowInterval.current);
+      windowInterval.current = null;
+    }
+    if (countdownInterval.current) {
+      clearInterval(countdownInterval.current);
+      countdownInterval.current = null;
+    }
+    frameBuffer.current = [];
+  }, []);
 
   const addFrame = useCallback((frameResult: FrameResult) => {
     frameBuffer.current.push(frameResult);
   }, []);
 
   useEffect(() => {
-    if (!enabled || !sessionId) return;
+    if (!enabled || !sessionId) {
+      stopEngagement();
+      return;
+    }
+
+    active.current = true;
+    // A resumed video starts a clean analysis window. Frames collected before
+    // pausing are intentionally discarded by stopEngagement.
+    setCountdown(WINDOW_SECONDS);
 
     countdownInterval.current = setInterval(() => {
       setCountdown((prev) => (prev <= 1 ? WINDOW_SECONDS : prev - 1));
     }, 1000);
 
     windowInterval.current = setInterval(async () => {
-      if (frameBuffer.current.length === 0) return;
+      if (!active.current || frameBuffer.current.length === 0) return;
 
       const buffer = [...frameBuffer.current];
       frameBuffer.current = [];
@@ -48,7 +69,10 @@ export function useEngagement(sessionId: string | null, enabled = true) {
         const sessionData = buffer.map(f => ({
           emotion: f.emotion || 'Neutral',
           confidence: f.confidence || 0.5,
-          attention: f.attention ? 100 : 0,
+          attention: f.attention ? 1 : 0,
+          valence: f.valence,
+          interaction: f.interaction,
+          fatigue: f.fatigue || 0,
           eyesDetected: f.attention !== false
         }));
 
@@ -56,6 +80,10 @@ export function useEngagement(sessionId: string | null, enabled = true) {
           sessionData,
           WINDOW_SECONDS
         );
+
+        // The learner may end the session while the AI request is in flight.
+        // Never write the completed result into a session that has since closed.
+        if (!active.current) return;
 
         const score = engagementResult.engagementScore || 0;
         const state = engagementResult.state || 'ENGAGED';
@@ -68,8 +96,9 @@ export function useEngagement(sessionId: string | null, enabled = true) {
         const dominant_emotion = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Neutral';
         
         const avg_attention = engagementResult.attentionScore || 0;
-        const avg_valence = 0.6; // Would come from emotion valence
-        const avg_interaction = 0.5; // Would come from interaction data
+        const avg_valence = buffer.reduce((sum, frame) => sum + frame.valence, 0) / buffer.length;
+        const avg_interaction = buffer.reduce((sum, frame) => sum + frame.interaction, 0) / buffer.length;
+        const avg_fatigue = buffer.reduce((sum, frame) => sum + (frame.fatigue || 0), 0) / buffer.length;
 
         if (state === 'DISTRACTED' || state === 'BREAK_NEEDED') {
           negativeCount.current += 1;
@@ -82,6 +111,7 @@ export function useEngagement(sessionId: string | null, enabled = true) {
         const avgInt = avg_interaction;
 
         try {
+          if (!active.current) return;
           await sessionAPI.sendWindow(sessionId, {
             score,
             state,
@@ -89,15 +119,16 @@ export function useEngagement(sessionId: string | null, enabled = true) {
             attentionScore: avgAtt,
             emotionValence: avgVal,
             interactionScore: avgInt,
+            fatigueScore: avg_fatigue,
           });
         } catch (error: any) {
           // Stop sending window data if session is not active
           if (error.response?.status === 400 || error.response?.status === 404) {
             console.log('Session no longer active, stopping window updates');
-            if (windowInterval.current) clearInterval(windowInterval.current);
-            if (countdownInterval.current) clearInterval(countdownInterval.current);
+            stopEngagement();
+          } else {
+            console.error('Failed to store engagement window:', error);
           }
-          // silently continue for other errors
         }
 
         setCurrentScore(score);
@@ -109,10 +140,9 @@ export function useEngagement(sessionId: string | null, enabled = true) {
     }, WINDOW_SECONDS * 1000);
 
     return () => {
-      if (windowInterval.current) clearInterval(windowInterval.current);
-      if (countdownInterval.current) clearInterval(countdownInterval.current);
+      stopEngagement();
     };
-  }, [sessionId, enabled]);
+  }, [sessionId, enabled, stopEngagement]);
 
-  return { currentScore, currentState, windowHistory, addFrame, countdown };
+  return { currentScore, currentState, windowHistory, addFrame, countdown, stopEngagement };
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Menu, X, ChevronRight, BarChart3, Shield, Zap, Lock, Eye, CheckCircle2, Play } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 // --- Pro Dashboard Widget ---
 
@@ -129,21 +130,20 @@ export function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-primary/30 selection:text-white font-sans antialiased">
+    <div className="public-cosmic-page min-h-screen text-white selection:bg-primary/30 selection:text-white font-sans antialiased">
       {/* Sleek Mesh Background */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-[100%] bg-primary/20 blur-[150px] opacity-70 mix-blend-screen" />
         <div className="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-[100%] bg-primary/15 blur-[120px] opacity-60 mix-blend-screen" />
         <div className="absolute bottom-[-20%] left-[10%] w-[40%] h-[40%] rounded-[100%] bg-blue-500/10 blur-[120px] opacity-40 mix-blend-screen" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10 mix-blend-overlay" />
       </div>
 
       {/* Navigation */}
       <nav className={`fixed top-0 z-50 w-full transition-all duration-500 ${scrolled ? 'bg-[#050505]/80 py-4 shadow-2xl backdrop-blur-xl border-b border-white/5' : 'bg-transparent py-6'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight text-white">
-            <Brain className="h-5 w-5 text-primary" />
-            EmoLearn
+            <BrandLogo priority imageClassName="h-12 w-12" nameClassName="text-lg text-white" />
           </Link>
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-white/60 transition-colors hover:text-white">Product</a>
@@ -167,18 +167,18 @@ export function HomePage() {
           <motion.div initial="hidden" animate="visible" variants={stagger} className="mx-auto max-w-4xl">
             <motion.div variants={fadeIn} className="mb-8 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-md">
               <Zap className="mr-2 h-3 w-3 text-primary" />
-              Introducing EmoLearn Edge AI 2.0
+              Meet Eduvo
             </motion.div>
             <motion.h1 variants={fadeIn} className="text-5xl font-medium tracking-tight sm:text-7xl lg:text-[5.5rem] leading-[1.05]">
-              Learning that <br className="hidden sm:block" />
-              <span className="text-white/50">adapts to the human state.</span>
+              Learning That <br className="hidden sm:block" />
+              <span className="text-white/50">Evolves With You.</span>
             </motion.h1>
             <motion.p variants={fadeIn} className="mt-8 mx-auto max-w-2xl text-lg text-white/50 sm:text-xl font-light leading-relaxed">
-              The professional LMS powered by real-time facial analysis. We measure focus, detect frustration, and deliver intelligent interventions to drive better outcomes.
+              Eduvo is an intelligent adaptive learning platform designed to understand learner behaviour and evolve the learning experience in real time.
             </motion.p>
             <motion.div variants={fadeIn} className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/register" className="flex w-full items-center justify-center gap-2 rounded-full bg-white px-8 py-3.5 text-sm font-medium text-black shadow-lg transition-all hover:scale-105 sm:w-auto">
-                Start building
+                Start learning
               </Link>
               <a href="#bento" className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 py-3.5 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10 sm:w-auto">
                 <Play className="h-4 w-4" />
@@ -250,7 +250,7 @@ export function HomePage() {
               <Zap className="mb-6 h-8 w-8 text-blue-400" />
               <h3 className="mb-2 text-2xl font-medium text-white">Adaptive Interventions</h3>
               <p className="max-w-md text-white/50 font-light leading-relaxed">
-                The system reacts faster than a human. When fatigue sets in or frustration spikes, EmoLearn automatically nudges the student, suggests breaks, or offers alternative explanations.
+                When fatigue develops or frustration increases, Eduvo can nudge the student, suggest a break, or offer a supportive next step.
               </p>
             </div>
 
@@ -259,7 +259,7 @@ export function HomePage() {
       </section>
 
       {/* Security & Tech */}
-      <section id="security" className="relative z-10 border-t border-white/5 bg-[#050505] py-24 sm:py-32">
+      <section id="security" className="relative z-10 border-t border-white/10 bg-[#050505]/65 py-24 backdrop-blur-sm sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
             <div>

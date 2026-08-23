@@ -15,16 +15,16 @@ function LiveSessionsContent() {
 
   useEffect(() => {
     teacherAPI.getLiveSessions()
-      .then((res) => setLiveData(res.data))
+      .then(setLiveData)
       .catch(() => toast.error('Failed to load live sessions'))
       .finally(() => setLoading(false));
     
-    // Refresh every 10 seconds
+    // Near-real-time refresh backed by active MongoDB session data.
     const interval = setInterval(() => {
       teacherAPI.getLiveSessions()
-        .then((res) => setLiveData(res.data))
+        .then(setLiveData)
         .catch(() => {});
-    }, 10000);
+    }, 2000);
     
     return () => clearInterval(interval);
   }, []);
@@ -61,10 +61,21 @@ function LiveSessionsContent() {
                     <div>
                       <h3 className="text-lg font-bold text-heading">{student.student.name}</h3>
                       <p className="text-sm text-body">{student.student.email}</p>
+                      <p className="mt-1 text-xs font-medium text-primary">{student.course?.title || 'Course session'}</p>
                     </div>
                     <div className="flex items-center gap-2 rounded-full bg-primary/20 px-3 py-1">
                       <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                       <span className="text-xs font-semibold text-primary">Live</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="mb-1 flex justify-between text-xs text-body">
+                      <span>Course progress</span>
+                      <span>{Math.round(student.progress || 0)}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${student.progress || 0}%` }} />
                     </div>
                   </div>
 
@@ -102,6 +113,7 @@ function LiveSessionsContent() {
                       Started: {new Date(student.startTime).toLocaleTimeString()}
                     </span>
                   </div>
+                  <p className="mt-2 text-[11px] text-body">Updated {new Date(student.lastUpdated).toLocaleTimeString()}</p>
                 </div>
               ))}
             </div>
