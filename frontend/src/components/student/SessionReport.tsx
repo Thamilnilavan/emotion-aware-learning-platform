@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Lightbulb, Download } from 'lucide-react';
+import { Lightbulb, Download, MessageSquareQuote } from 'lucide-react';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { toast } from 'sonner';
 import { sessionAPI } from '@/services/api/sessions';
@@ -121,6 +121,24 @@ export function SessionReport({ sessionId }: SessionReportProps) {
               </div>
             </div>
           </div>
+
+          {session.teacherFeedback?.comment && (
+            <div className="glass-card border-l-4 border-primary p-6">
+              <div className="flex gap-4">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <MessageSquareQuote className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="font-bold text-heading">Teacher Report Comment</h3>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-heading">{session.teacherFeedback.comment}</p>
+                  <p className="mt-3 text-xs text-body">
+                    {typeof session.teacherFeedback.teacherId === 'object' ? session.teacherFeedback.teacherId.name : 'Your teacher'}
+                    {' · '}{formatDate(session.teacherFeedback.updatedAt)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="glass-card p-6">
             <h3 className="mb-4 font-bold text-heading">Engagement Timeline</h3>

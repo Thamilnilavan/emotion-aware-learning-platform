@@ -52,4 +52,6 @@ userSchema.statics.findByEmail = function (email) {
   return this.findOne({ email }).select('+password');
 };
 
+userSchema.index({ role: 1 });
+
 module.exports = mongoose.model('User', userSchema);

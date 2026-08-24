@@ -11,6 +11,7 @@ const deletionRequestSchema = new mongoose.Schema({
   },
   reviewedAt: { type: Date },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  deletionSummary: { type: mongoose.Schema.Types.Mixed },
 }, { timestamps: true });
 
 deletionRequestSchema.index({ status: 1, createdAt: -1 });

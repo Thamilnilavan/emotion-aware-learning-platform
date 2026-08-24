@@ -29,6 +29,11 @@ export const teacherAPI = {
     return response.data;
   },
 
+  async saveReportComment(studentId: string, sessionId: string, comment: string) {
+    const response = await api.put(`/teacher/students/${studentId}/sessions/${sessionId}/comment`, { comment });
+    return response.data;
+  },
+
   // Live Sessions
   async getLiveSessions() {
     const response = await api.get('/teacher/live-sessions');

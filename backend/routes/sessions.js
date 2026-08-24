@@ -403,7 +403,9 @@ router.get('/my', async (req, res) => {
 
 router.get('/:id/report', async (req, res) => {
   try {
-    const session = await Session.findById(req.params.id).populate('courseId', 'title');
+    const session = await Session.findById(req.params.id)
+      .populate('courseId', 'title')
+      .populate('teacherFeedback.teacherId', 'name');
     if (!session) {
       return res.status(404).json({ success: false, message: 'Session not found' });
     }

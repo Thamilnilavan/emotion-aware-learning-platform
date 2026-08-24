@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Course = require('../models/Course');
@@ -68,6 +69,7 @@ router.get('/students/:studentId/sessions', async (req, res) => {
       .sort({ endTime: -1 })
       .select('-windows')
       .populate('courseId', 'title')
+      .populate('teacherFeedback.teacherId', 'name')
       .lean();
 
     const student = await User.findById(req.params.studentId).select(
@@ -79,6 +81,55 @@ router.get('/students/:studentId/sessions', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
+router.put(
+  '/students/:studentId/sessions/:sessionId/comment',
+  [body('comment').trim().isLength({ min: 1, max: 2000 })],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, message: 'Comment must be between 1 and 2,000 characters' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(req.params.studentId) || !mongoose.Types.ObjectId.isValid(req.params.sessionId)) {
+        return res.status(400).json({ success: false, message: 'Invalid student or session ID' });
+      }
+
+      const courseIds = req.user.role === 'admin' ? [] : await getTeacherCourseIds(req.user.id);
+      const session = await Session.findOne({
+        _id: req.params.sessionId,
+        userId: req.params.studentId,
+        status: 'completed',
+        ...(req.user.role === 'admin' ? {} : { courseId: { $in: courseIds } }),
+      });
+      if (!session) {
+        return res.status(404).json({ success: false, message: 'Completed report not found in your courses' });
+      }
+
+      session.teacherFeedback = {
+        teacherId: req.user.id,
+        comment: req.body.comment,
+        updatedAt: new Date(),
+      };
+      await session.save();
+      await session.populate('teacherFeedback.teacherId', 'name');
+
+      await Notification.create({
+        recipientId: req.params.studentId,
+        senderId: req.user.id,
+        title: 'New report card comment',
+        type: 'feedback',
+        message: req.body.comment,
+        sessionId: session._id,
+        metadata: { reportUrl: `/student/reports/${session._id}` },
+      });
+
+      return res.json({ success: true, teacherFeedback: session.teacherFeedback });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+);
 
 router.post(
   '/feedback',

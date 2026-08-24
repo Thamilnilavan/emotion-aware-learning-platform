@@ -43,7 +43,7 @@ function UsersContent() {
 
   const updateUser = async (user: AdminUser, changes: { role?: string; isActive?: boolean }) => {
     try { await adminAPI.updateUser(user._id, changes); toast.success('User updated'); await loadUsers(); }
-    catch { toast.error('Could not update user'); }
+    catch (error: any) { toast.error(error?.response?.data?.message || 'Could not update user'); }
   };
 
   return <div className="min-h-screen bg-background pb-20 lg:pb-0"><Navbar /><div className="flex"><Sidebar />

@@ -35,6 +35,12 @@ const InterventionSchema = new mongoose.Schema({
   firedAt: { type: Date, default: Date.now },
 }, { _id: true });
 
+const TeacherFeedbackSchema = new mongoose.Schema({
+  teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  comment: { type: String, required: true, trim: true, maxlength: 2000 },
+  updatedAt: { type: Date, default: Date.now },
+}, { _id: false });
+
 const SessionSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
@@ -52,6 +58,7 @@ const SessionSchema = new mongoose.Schema({
     default: 'active',
   },
   consentVerified: { type: Boolean, default: false },
+  teacherFeedback: { type: TeacherFeedbackSchema, default: null },
   summary: {
     averageScore: { type: Number, default: 0 },
     peakScore: { type: Number, default: 0 },
@@ -67,5 +74,7 @@ const SessionSchema = new mongoose.Schema({
 
 SessionSchema.index({ userId: 1 });
 SessionSchema.index({ userId: 1, status: 1 });
+SessionSchema.index({ status: 1 });
+SessionSchema.index({ startTime: -1 });
 
 module.exports = mongoose.model('Session', SessionSchema);

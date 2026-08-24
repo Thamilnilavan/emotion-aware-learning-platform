@@ -78,6 +78,11 @@ export interface LearningSession {
   }>;
   windows?: EngagementWindow[];
   status: string;
+  teacherFeedback?: {
+    teacherId: { _id: string; name: string } | string;
+    comment: string;
+    updatedAt: string;
+  } | null;
   summary: SessionSummary;
 }
 

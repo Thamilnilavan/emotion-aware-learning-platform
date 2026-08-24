@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Users, GraduationCap, BookOpen, TrendingUp, Activity, Database, Brain, HeartPulse, Server, Cpu, HardDrive } from 'lucide-react';
 import { toast } from 'sonner';
 import adminAPI from '@/services/api/admin';
@@ -14,28 +14,56 @@ export function AdminDashboard() {
   const [analytics, setAnalytics] = useState<Array<Record<string, any>>>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadData = useCallback(() => {
-    Promise.all([
-      adminAPI.getDashboard(),
-      adminAPI.getSystemHealth(),
-      adminAPI.getAnalytics('7d'),
-    ]).then(([dashboard, system, analyticsResult]) => {
-      setDashboardData(dashboard);
-      setSystemHealth(system);
-      setAnalytics(analyticsResult.dailyData || []);
-    }).catch((error) => {
-      console.error("Admin dashboard error:", error);
-      toast.error('Failed to load dashboard data');
-    }).finally(() => setLoading(false));
-  }, []);
-
   useEffect(() => {
-    loadData();
-    const interval = setInterval(() => {
-      adminAPI.getSystemHealth().then((res) => setSystemHealth(res)).catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+    let active = true;
+    let metricsInFlight = false;
+    let healthInFlight = false;
+
+    const loadMetrics = async (showError = false) => {
+      if (metricsInFlight) return;
+      metricsInFlight = true;
+      const results = await Promise.allSettled([
+        adminAPI.getDashboard(),
+        adminAPI.getAnalytics('7d'),
+      ]);
+      if (active) {
+        const [dashboard, analyticsResult] = results;
+        if (dashboard.status === 'fulfilled') setDashboardData(dashboard.value);
+        if (analyticsResult.status === 'fulfilled') setAnalytics(analyticsResult.value.dailyData || []);
+        if (showError && results.every((result) => result.status === 'rejected')) {
+          toast.error('Failed to load dashboard data');
+        }
+      }
+      metricsInFlight = false;
+    };
+
+    const loadHealth = async () => {
+      if (healthInFlight) return;
+      healthInFlight = true;
+      try {
+        const result = await adminAPI.getSystemHealth();
+        if (active) setSystemHealth(result);
+      } catch {
+        // Metrics remain usable while a dependency health check is unavailable.
+      } finally {
+        healthInFlight = false;
+      }
+    };
+
+    const initialise = async () => {
+      await Promise.all([loadMetrics(true), loadHealth()]);
+      if (active) setLoading(false);
+    };
+    void initialise();
+
+    const metricsInterval = window.setInterval(() => void loadMetrics(), 5000);
+    const healthInterval = window.setInterval(() => void loadHealth(), 30000);
+    return () => {
+      active = false;
+      window.clearInterval(metricsInterval);
+      window.clearInterval(healthInterval);
+    };
+  }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
 
@@ -48,7 +76,15 @@ export function AdminDashboard() {
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-4 md:p-8">
-          <h1 className="mb-8 text-2xl font-extrabold text-heading">Admin Dashboard</h1>
+          <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold text-heading">Admin Dashboard</h1>
+              <span className="flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-success" /> Live
+              </span>
+            </div>
+            <p className="text-xs text-body">Metrics refresh every 5 seconds</p>
+          </div>
 
           {/* Bento Grid Layout */}
           <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -111,8 +147,8 @@ export function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-body">AI Model Status</p>
-                  <p className={`text-lg font-bold ${health?.aiService === 'online' ? 'text-success' : 'text-danger'}`}>
-                    {health?.aiService === 'online' ? 'Running' : 'Offline'}
+                  <p className={`text-lg font-bold ${health?.modelLoaded ? 'text-success' : 'text-danger'}`}>
+                    {health?.modelLoaded ? 'Running' : health?.aiGateway === 'online' ? 'Model unavailable' : 'Offline'}
                   </p>
                 </div>
               </div>
@@ -145,12 +181,12 @@ export function AdminDashboard() {
               </div>
             </div>
 
-            <div className={`glass-card p-4 ${health?.aiService === 'online' ? 'border-l-4 border-l-success' : 'border-l-4 border-l-danger'}`}>
+            <div className={`glass-card p-4 ${health?.modelLoaded ? 'border-l-4 border-l-success' : 'border-l-4 border-l-danger'}`}>
               <div className="flex items-center gap-3">
                 <Server className="h-5 w-5 text-primary" />
                 <div>
                   <p className="text-xs text-body">AI Services</p>
-                  <p className="font-semibold text-heading">{health?.aiService === 'online' ? 'Online' : 'Offline'}</p>
+                  <p className="font-semibold text-heading">{health?.modelLoaded ? 'Model loaded' : health?.aiGateway === 'online' ? 'Model unavailable' : 'Offline'}</p>
                 </div>
               </div>
             </div>

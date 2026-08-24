@@ -80,6 +80,11 @@ export const adminAPI = {
     return response.data;
   },
 
+  async runRetentionCleanup() {
+    const response = await api.post('/admin/privacy/run-retention');
+    return response.data;
+  },
+
   // Settings
   async getSettings() {
     const response = await api.get(`/admin/settings`);
