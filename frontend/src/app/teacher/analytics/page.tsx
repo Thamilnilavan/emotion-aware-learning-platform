@@ -13,7 +13,18 @@ function EarlyWarningsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    dashboardAPI.getEarlyWarnings().then((res) => setWarnings(res.data.warnings || [])).finally(() => setLoading(false));
+    let active = true;
+    const load = async () => {
+      try {
+        const res = await dashboardAPI.getEarlyWarnings();
+        if (active) setWarnings(res.data.warnings || []);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load();
+    const interval = window.setInterval(() => void load(), 10000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   return (

@@ -16,6 +16,7 @@ const teacherRoutes = require('./routes/teacher');
 const adminRoutes = require('./routes/admin');
 const aiRoutes = require('./routes/ai');
 const assistantRoutes = require('./routes/assistant');
+const plannerRoutes = require('./routes/planner');
 const { sanitizeInput } = require('./middleware/sanitize');
 
 const app = express();
@@ -52,6 +53,7 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     preflightContinue: false,
     optionsSuccessStatus: 204,
+    maxAge: 86400,
   })
 );
 
@@ -110,6 +112,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/assistant', assistantRoutes);
+app.use('/api/planner', plannerRoutes);
 
 // Health check endpoint
 app.get('/health', async (req, res) => {

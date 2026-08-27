@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Brain, Target, BookOpen, AlertCircle } from 'lucide-react';
+import { Brain, Target, BookOpen, AlertCircle, MessageSquareText } from 'lucide-react';
 import { toast } from 'sonner';
 import studentAPI from '@/services/api/student';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -15,10 +15,15 @@ function RecommendationsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    studentAPI.getRecommendations()
-      .then((res) => setRecommendationsData(res.data))
-      .catch(() => toast.error('Failed to load recommendations'))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try { const data = await studentAPI.getRecommendations(); if (active) setRecommendationsData(data); }
+      catch { if (showError) toast.error('Failed to load recommendations'); }
+      finally { if (active) setLoading(false); }
+    };
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 15000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
@@ -37,6 +42,7 @@ function RecommendationsContent() {
     engagement: Brain,
     challenge: Target,
     course: BookOpen,
+    teacher_tip: MessageSquareText,
   };
 
   return (
@@ -48,8 +54,8 @@ function RecommendationsContent() {
           <div className="mb-8 flex items-center gap-3">
             <Brain className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-2xl font-extrabold text-heading">Personalized Recommendations</h1>
-              <p className="text-sm text-body">AI-powered learning suggestions based on your progress</p>
+              <h1 className="text-2xl font-extrabold text-heading">Teacher Tips & Recommendations</h1>
+              <p className="text-sm text-body">Guidance from your teachers with additional learning recommendations</p>
             </div>
           </div>
 
@@ -74,7 +80,7 @@ function RecommendationsContent() {
                       </div>
                       <div className="flex-1">
                         <h3 className="font-bold text-heading">{rec.title}</h3>
-                        <span className="text-xs capitalize font-semibold">{rec.priority} priority</span>
+                        <span className="text-xs capitalize font-semibold">{rec.source === 'teacher' ? `${rec.teacherName || 'Your teacher'} · ${rec.courseName || 'General guidance'}` : `${rec.priority} priority · Learning analytics`}</span>
                       </div>
                     </div>
                     <p className="text-sm text-body">{rec.description}</p>

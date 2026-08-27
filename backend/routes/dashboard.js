@@ -131,11 +131,40 @@ router.get('/student/recommendations', verifyToken, requireRole('student'), asyn
       ['Sad', 'Angry', 'Fearful', 'Disgusted'].includes(s.summary?.dominantEmotion)
     ).length;
 
-    const recommendations = [];
+    const teacherMessages = await Notification.find({
+      recipientId: req.user.id,
+      senderId: { $exists: true },
+      type: { $in: ['feedback', 'encouragement', 'warning'] },
+    })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .populate('senderId', 'name role')
+      .populate({ path: 'sessionId', select: 'courseId', populate: { path: 'courseId', select: 'title' } })
+      .lean();
+
+    const recommendations = teacherMessages
+      .filter((message) => ['teacher', 'admin'].includes(message.senderId?.role))
+      .slice(0, 5)
+      .map((message) => ({
+        id: message._id,
+        type: 'teacher_tip',
+        source: 'teacher',
+        title: message.title && message.title !== 'Notification' ? message.title : 'Teacher suggestion',
+        description: message.message,
+        priority: message.type === 'warning' ? 'high' : 'medium',
+        teacherName: message.senderId.name,
+        courseName: message.sessionId?.courseId?.title || message.metadata?.courseTitle || 'General guidance',
+        courseId: message.sessionId?.courseId?._id || message.metadata?.courseId,
+        createdAt: message.createdAt,
+        sessionId: message.sessionId,
+      }));
+
+    const learningRecommendations = [];
 
     if (averageEngagement < 50) {
-      recommendations.push({
+      learningRecommendations.push({
         type: 'study_habit',
+        source: 'analytics',
         title: 'Shorter Study Sessions',
         description: 'Try 25-minute focused sessions with 5-minute breaks to improve engagement.',
         priority: 'high',
@@ -143,8 +172,9 @@ router.get('/student/recommendations', verifyToken, requireRole('student'), asyn
     }
 
     if (negativeEmotions > sessions.length / 2) {
-      recommendations.push({
+      learningRecommendations.push({
         type: 'wellbeing',
+        source: 'analytics',
         title: 'Take a Break',
         description: 'Consider taking a break from studying to refresh your mental state.',
         priority: 'medium',
@@ -152,8 +182,9 @@ router.get('/student/recommendations', verifyToken, requireRole('student'), asyn
     }
 
     if (sessions.length < 5) {
-      recommendations.push({
+      learningRecommendations.push({
         type: 'engagement',
+        source: 'analytics',
         title: 'Build Your Routine',
         description: 'Complete more sessions to unlock personalized AI recommendations.',
         priority: 'low',
@@ -161,8 +192,9 @@ router.get('/student/recommendations', verifyToken, requireRole('student'), asyn
     }
 
     if (averageEngagement >= 75) {
-      recommendations.push({
+      learningRecommendations.push({
         type: 'challenge',
+        source: 'analytics',
         title: 'Advanced Topics',
         description: 'Your engagement is excellent! Try more challenging material.',
         priority: 'medium',
@@ -173,8 +205,9 @@ router.get('/student/recommendations', verifyToken, requireRole('student'), asyn
     const enrolledCourses = await Course.find({ _id: { $in: user.enrolledCourses || [] } }).lean();
 
     enrolledCourses.forEach(course => {
-      recommendations.push({
+      learningRecommendations.push({
         type: 'course',
+        source: 'course',
         title: `Continue: ${course.title}`,
         description: 'Pick up where you left off in this course.',
         priority: 'low',
@@ -184,7 +217,8 @@ router.get('/student/recommendations', verifyToken, requireRole('student'), asyn
 
     return res.json({
       success: true,
-      recommendations: recommendations.slice(0, 8),
+      recommendations: [...recommendations, ...learningRecommendations].slice(0, 10),
+      teacherSuggestionCount: recommendations.length,
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

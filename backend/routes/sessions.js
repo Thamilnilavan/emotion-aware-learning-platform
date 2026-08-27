@@ -54,7 +54,7 @@ router.post('/start', async (req, res) => {
     const enrolledOnCourse = course.enrolledStudents.some((id) => id.toString() === req.user.id);
     const enrolledOnUser = (user.enrolledCourses || []).some((id) => id.toString() === courseId);
     if (!enrolledOnCourse && !enrolledOnUser) {
-      return res.status(403).json({ success: false, message: 'You must enrol in this course before starting a session' });
+      return res.status(403).json({ success: false, message: 'You must enroll in this course before starting a session' });
     }
 
     // Make session creation idempotent. This also protects against duplicate

@@ -9,4 +9,6 @@ export interface AssistantMessage {
 
 export const assistantAPI = {
   chat: (message: string) => api.post<{ success: boolean; response: string }>('/assistant/chat', { message }),
+  getHistory: () => api.get<{ success: boolean; messages: AssistantMessage[] }>('/assistant/history'),
+  clearHistory: () => api.delete<{ success: boolean }>('/assistant/history'),
 };

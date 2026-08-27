@@ -22,8 +22,8 @@ function ProfileContent() {
     ])
       .then(([dashRes, achievementsRes]) => {
         setProfileData({
-          ...dashRes.data,
-          ...achievementsRes.data
+          ...dashRes,
+          ...achievementsRes
         });
       })
       .catch(() => toast.error('Failed to load profile data'))

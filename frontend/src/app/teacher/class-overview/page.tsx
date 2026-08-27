@@ -14,10 +14,15 @@ function ClassOverviewContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    teacherAPI.getClassOverview()
-      .then(setClassData)
-      .catch(() => toast.error('Failed to load class overview'))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try { const data = await teacherAPI.getClassOverview(); if (active) setClassData(data); }
+      catch { if (showError) toast.error('Failed to load class overview'); }
+      finally { if (active) setLoading(false); }
+    };
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 5000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
@@ -52,9 +57,9 @@ function ClassOverviewContent() {
                     <div className="rounded-full bg-primary/20 p-3">
                       <BookOpen className="h-6 w-6 text-primary" />
                     </div>
-                    <div className="flex items-center gap-2 rounded-full bg-success/20 px-3 py-1">
-                      <div className="h-2 w-2 rounded-full bg-success" />
-                      <span className="text-xs font-semibold text-success">Active</span>
+                    <div className={`flex items-center gap-2 rounded-full px-3 py-1 ${cls.isActive ? 'bg-success/20' : 'bg-muted'}`}>
+                      <div className={`h-2 w-2 rounded-full ${cls.isActive ? 'bg-success' : 'bg-body'}`} />
+                      <span className={`text-xs font-semibold ${cls.isActive ? 'text-success' : 'text-body'}`}>{cls.isActive ? 'Active' : 'Archived'}</span>
                     </div>
                   </div>
 

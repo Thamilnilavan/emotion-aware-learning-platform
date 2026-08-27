@@ -1,21 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Settings, Moon, Sun, Bell, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import { authAPI } from '@/services/api/auth';
 
 function SettingsContent() {
-  const { user } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
+  const { user, updateUser } = useAuth();
+  const [darkMode, setDarkMode] = useState(Boolean(user?.preferences?.darkMode));
+  const [saving, setSaving] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [emailAlerts, setEmailAlerts] = useState(false);
 
-  const handleSaveSettings = () => {
-    toast.success('Settings saved successfully');
+  useEffect(() => {
+    setDarkMode(Boolean(user?.preferences?.darkMode));
+  }, [user?.preferences?.darkMode]);
+
+  const handleDarkMode = async () => {
+    const previous = darkMode;
+    const next = !previous;
+    setDarkMode(next);
+    document.documentElement.dataset.theme = next ? 'dark' : 'light';
+    document.documentElement.style.colorScheme = next ? 'dark' : 'light';
+    try {
+      setSaving(true);
+      const response = await authAPI.updatePreferences({ darkMode: next });
+      updateUser({ preferences: response.data.preferences });
+      toast.success(`${next ? 'Dark' : 'Light'} mode enabled`);
+    } catch {
+      setDarkMode(previous);
+      document.documentElement.dataset.theme = previous ? 'dark' : 'light';
+      document.documentElement.style.colorScheme = previous ? 'dark' : 'light';
+      toast.error('Could not save appearance settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -44,7 +67,12 @@ function SettingsContent() {
                 <p className="text-sm text-body">Enable dark theme for the interface</p>
               </div>
               <button
-                onClick={() => setDarkMode(!darkMode)}
+                type="button"
+                role="switch"
+                aria-checked={darkMode}
+                aria-label="Toggle dark mode"
+                onClick={handleDarkMode}
+                disabled={saving}
                 className={`relative h-6 w-11 rounded-full transition-colors ${
                   darkMode ? 'bg-primary' : 'bg-muted'
                 }`}
@@ -122,15 +150,6 @@ function SettingsContent() {
             </div>
           </div>
 
-          {/* Save Button */}
-          <div className="mt-8 flex justify-end">
-            <button
-              onClick={handleSaveSettings}
-              className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary/90"
-            >
-              Save Settings
-            </button>
-          </div>
         </main>
       </div>
     </div>

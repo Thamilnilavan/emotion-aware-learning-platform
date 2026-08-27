@@ -64,19 +64,42 @@ const materialUpload = multer({
   },
 });
 
+const transcriptStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '..', 'uploads', 'transcripts');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const safeBase = path.basename(file.originalname, path.extname(file.originalname))
+      .replace(/[^a-z0-9_-]/gi, '-')
+      .slice(0, 60);
+    cb(null, `${Date.now()}-${safeBase}.vtt`);
+  },
+});
+const transcriptUpload = multer({
+  storage: transcriptStorage,
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (path.extname(file.originalname).toLowerCase() === '.vtt') return cb(null, true);
+    return cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', 'transcript'));
+  },
+});
+
 router.get('/', verifyToken, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
 
-    const courses = await Course.find({ isActive: true })
-      .populate('teacherId', 'name')
-      .skip(skip)
-      .limit(limit)
-      .lean();
-    
-    const totalCount = await Course.countDocuments({ isActive: true });
+    const [courses, totalCount] = await Promise.all([
+      Course.find({ isActive: true })
+        .populate('teacherId', 'name')
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Course.countDocuments({ isActive: true }),
+    ]);
     
     return res.json({ 
       success: true, 
@@ -128,6 +151,27 @@ router.post('/upload-video', verifyToken, requireRole('teacher', 'admin'), handl
 router.post('/upload-material', verifyToken, requireRole('teacher', 'admin'), handleUpload(materialUpload.single('material')), (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'A supported document file is required' });
   return res.json({ success: true, materialUrl: `/uploads/materials/${req.file.filename}`, filename: req.file.filename, size: req.file.size });
+});
+
+router.post('/upload-transcript', verifyToken, requireRole('teacher', 'admin'), handleUpload(transcriptUpload.single('transcript')), (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'A WebVTT (.vtt) transcript is required' });
+
+  try {
+    const contents = fs.readFileSync(req.file.path, 'utf8').replace(/^\uFEFF/, '').trimStart();
+    if (!contents.startsWith('WEBVTT')) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, message: 'Invalid transcript. The file must begin with WEBVTT' });
+    }
+    return res.json({
+      success: true,
+      transcriptUrl: `/uploads/transcripts/${req.file.filename}`,
+      filename: req.file.filename,
+      size: req.file.size,
+    });
+  } catch (error) {
+    if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ success: false, message: 'The transcript file could not be read' });
+  }
 });
 
 router.post(
@@ -259,23 +303,19 @@ router.get('/my', verifyToken, async (req, res) => {
         .populate('enrolledStudents', 'name email')
         .lean();
     } else {
-      const user = await User.findById(req.user.id).select('enrolledCourses');
-      courses = await Course.find({
-        $or: [
-          { enrolledStudents: req.user.id },
-          { _id: { $in: user?.enrolledCourses || [] } },
-        ],
-        isActive: true,
-      })
-        .populate('teacherId', 'name email')
-        .lean();
-      
-      // Calculate analytics for student courses
       const Session = require('../models/Session');
-      const SessionData = await Session.find({ 
-        userId: req.user.id,
-        status: { $in: ['active', 'completed'] }
-      }).lean();
+      const [studentCourses, SessionData] = await Promise.all([
+        Course.find({ enrolledStudents: req.user.id, isActive: true })
+          .populate('teacherId', 'name email')
+          .lean(),
+        Session.find({
+          userId: req.user.id,
+          status: { $in: ['active', 'completed'] },
+        })
+          .select('courseId status contentProgress summary.averageScore')
+          .lean(),
+      ]);
+      courses = studentCourses;
       
       courses = courses.map(course => {
         const courseSessions = SessionData.filter(s => s.courseId && s.courseId.toString() === course._id.toString());

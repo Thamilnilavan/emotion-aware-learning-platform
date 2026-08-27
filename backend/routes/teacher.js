@@ -113,6 +113,7 @@ router.put(
       };
       await session.save();
       await session.populate('teacherFeedback.teacherId', 'name');
+      await session.populate('courseId', 'title');
 
       await Notification.create({
         recipientId: req.params.studentId,
@@ -121,7 +122,11 @@ router.put(
         type: 'feedback',
         message: req.body.comment,
         sessionId: session._id,
-        metadata: { reportUrl: `/student/reports/${session._id}` },
+        metadata: {
+          reportUrl: `/student/reports/${session._id}`,
+          courseId: session.courseId?._id,
+          courseTitle: session.courseId?.title,
+        },
       });
 
       return res.json({ success: true, teacherFeedback: session.teacherFeedback });
@@ -137,6 +142,7 @@ router.post(
     body('studentId').notEmpty(),
     body('message').trim().notEmpty(),
     body('type').isIn(['feedback', 'encouragement', 'warning']),
+    body('courseId').optional({ values: 'falsy' }).isMongoId(),
   ],
   async (req, res) => {
     try {
@@ -150,11 +156,25 @@ router.post(
         return res.status(403).json({ success: false, message: 'Student not in your courses' });
       }
 
+      let course = null;
+      if (req.body.courseId) {
+        course = await Course.findOne({
+          _id: req.body.courseId,
+          enrolledStudents: req.body.studentId,
+          ...(req.user.role === 'admin' ? {} : { teacherId: req.user.id }),
+        }).select('title');
+        if (!course) {
+          return res.status(403).json({ success: false, message: 'Course is not assigned to this teacher and student' });
+        }
+      }
+
       const notification = new Notification({
         recipientId: req.body.studentId,
         senderId: req.user.id,
         type: req.body.type,
+        title: course ? `Teacher tip · ${course.title}` : 'Teacher suggestion',
         message: req.body.message,
+        metadata: course ? { courseId: course._id, courseTitle: course.title } : {},
       });
       await notification.save();
 
@@ -319,6 +339,7 @@ router.get('/class-overview', async (req, res) => {
       return {
         courseId: course._id,
         title: course.title,
+        isActive: course.isActive,
         studentCount: studentIds.length,
         avgEngagement: Math.round(avgEngagement),
         activeSessions

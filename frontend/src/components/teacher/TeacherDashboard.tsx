@@ -18,19 +18,26 @@ export function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      teacherAPI.getDashboard(),
-      teacherAPI.getStudents()
-    ])
-      .then(([dashRes, studentsRes]) => {
-        setDashboardData(dashRes);
-        setStudents(studentsRes.students || []);
-      })
-      .catch((error) => {
-        console.error("Dashboard error:", error);
-        toast.error('Failed to load dashboard data');
-      })
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try {
+        const [dashRes, studentsRes] = await Promise.all([teacherAPI.getDashboard(), teacherAPI.getStudents()]);
+        if (active) {
+          setDashboardData(dashRes);
+          setStudents(studentsRes.students || []);
+        }
+      } catch (error) {
+        if (showError) {
+          console.error('Dashboard error:', error);
+          toast.error('Failed to load dashboard data');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 5000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;

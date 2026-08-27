@@ -276,8 +276,8 @@ export function SessionReport({ sessionId }: SessionReportProps) {
           </div>
 
           <div className="flex flex-wrap gap-4">
-            <button onClick={() => toast.info('Coming soon')} className="flex items-center gap-2 rounded-2xl border px-6 py-3 text-sm font-semibold hover:bg-white/50">
-              <Download className="h-4 w-4" /> Download Report
+            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-2xl border px-6 py-3 text-sm font-semibold hover:bg-white/50">
+              <Download className="h-4 w-4" /> Print / Save PDF
             </button>
             <Link href="/student/reports" className="rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary-hover">View All Sessions</Link>
             <Link href="/student/dashboard" className="rounded-2xl border border-primary px-6 py-3 text-sm font-semibold text-primary hover:bg-primary/5">Start New Session</Link>

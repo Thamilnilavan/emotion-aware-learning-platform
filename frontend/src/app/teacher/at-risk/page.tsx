@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertTriangle, TrendingDown, Heart, Eye, Mail } from 'lucide-react';
+import { AlertTriangle, TrendingDown, Heart, Eye, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import teacherAPI from '@/services/api/teacher';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -14,10 +14,15 @@ function AtRiskContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    teacherAPI.getAtRiskStudents()
-      .then(setAtRiskData)
-      .catch(() => toast.error('Failed to load at-risk students'))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try { const data = await teacherAPI.getAtRiskStudents(); if (active) setAtRiskData(data); }
+      catch { if (showError) toast.error('Failed to load at-risk students'); }
+      finally { if (active) setLoading(false); }
+    };
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 10000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
@@ -41,19 +46,21 @@ function AtRiskContent() {
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-4 md:p-8">
-          <div className="mb-8 flex items-center gap-3">
-            <AlertTriangle className="h-8 w-8 text-danger" />
+          <div className="mb-6 flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger/10"><AlertTriangle className="h-6 w-6 text-danger" /></span>
             <div>
               <h1 className="text-2xl font-extrabold text-heading">At-Risk Students</h1>
-              <p className="text-sm text-body">Students requiring immediate attention</p>
+              <p className="text-sm text-body">Identify learners who may benefit from timely support</p>
             </div>
           </div>
 
           {atRiskStudents.length === 0 ? (
-            <div className="glass-card p-12 text-center">
-              <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-success" />
-              <h3 className="mb-2 text-lg font-bold text-heading">No At-Risk Students</h3>
-              <p className="text-body">All students are performing well!</p>
+            <div className="glass-card flex max-w-2xl items-center gap-4 rounded-2xl p-5 sm:p-6">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-success/15"><CheckCircle2 className="h-6 w-6 text-success" /></span>
+              <div>
+                <h3 className="font-bold text-heading">No students currently need attention</h3>
+                <p className="mt-1 text-sm text-body">Recent engagement and attention indicators are within the expected range.</p>
+              </div>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

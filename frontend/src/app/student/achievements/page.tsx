@@ -14,10 +14,15 @@ function AchievementsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    studentAPI.getAchievements()
-      .then((res) => setAchievementsData(res.data))
-      .catch(() => toast.error('Failed to load achievements'))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try { const data = await studentAPI.getAchievements(); if (active) setAchievementsData(data); }
+      catch { if (showError) toast.error('Failed to load achievements'); }
+      finally { if (active) setLoading(false); }
+    };
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 15000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;

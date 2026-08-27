@@ -16,6 +16,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const applyTheme = (darkMode: boolean) => {
+  document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+  document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light';
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -28,7 +33,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (storedToken && storedUser) {
       setToken(storedToken);
       try {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser) as User;
+        setUser(parsedUser);
+        applyTheme(Boolean(parsedUser.preferences?.darkMode));
       } catch {
         localStorage.removeItem('emolearn_user');
       }
@@ -41,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('emolearn_user', JSON.stringify(userData));
     setUser(userData);
     setToken(tokenValue);
+    applyTheme(Boolean(userData.preferences?.darkMode));
   }, []);
 
   const logout = useCallback(() => {
@@ -48,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('emolearn_user');
     setUser(null);
     setToken(null);
+    applyTheme(false);
     router.push('/login');
   }, [router]);
 
@@ -56,6 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!prev) return prev;
       const updated = { ...prev, ...updates };
       localStorage.setItem('emolearn_user', JSON.stringify(updated));
+      if (updates.preferences?.darkMode !== undefined) {
+        applyTheme(updates.preferences.darkMode);
+      }
       return updated;
     });
   }, []);

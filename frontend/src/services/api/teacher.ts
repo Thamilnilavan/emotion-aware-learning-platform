@@ -59,7 +59,7 @@ export const teacherAPI = {
   },
 
   // Feedback
-  async sendFeedback(data: { studentId: string; message: string; type: string }) {
+  async sendFeedback(data: { studentId: string; message: string; type: string; courseId?: string }) {
     const response = await api.post('/teacher/feedback', data);
     return response.data;
   },

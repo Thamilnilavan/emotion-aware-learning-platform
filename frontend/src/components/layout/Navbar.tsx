@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Menu, X, ChevronDown } from 'lucide-react';
+import { Bell, Menu, X, ChevronDown, UserRound, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { authAPI } from '@/services/api/auth';
@@ -43,6 +43,14 @@ export function Navbar() {
     user?.role === 'teacher' ? '/teacher/notifications' :
     user?.role === 'admin' ? '/admin/notifications' :
     '/student/notifications';
+  const accountLinks = user?.role === 'student'
+    ? [
+        { href: '/student/profile', label: 'Profile', icon: UserRound },
+        { href: '/student/settings', label: 'Settings', icon: Settings },
+      ]
+    : user?.role === 'admin'
+      ? [{ href: '/admin/settings', label: 'Settings', icon: Settings }]
+      : [];
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -90,6 +98,26 @@ export function Navbar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    setDropdownOpen(false);
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDropdownOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [dropdownOpen]);
+
+  const handleLogout = () => {
+    setDropdownOpen(false);
+    setMobileOpen(false);
+    logout();
+  };
+
   if (!isAuthenticated) return null;
 
   return (
@@ -126,20 +154,36 @@ export function Navbar() {
 
           <div className="relative hidden md:block" ref={dropdownRef}>
             <button
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm"
+              type="button"
+              onClick={() => setDropdownOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={dropdownOpen}
+              className="flex items-center gap-2 rounded-full border border-white/10 bg-white/10 py-1.5 pl-1.5 pr-3 text-sm transition hover:border-white/25 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-[#F1FEC8]/60"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold shadow-sm">
                 {user?.name?.charAt(0).toUpperCase()}
               </span>
-              <span className="max-w-[100px] truncate">{user?.name}</span>
-              <ChevronDown className="h-4 w-4" />
+              <span className="max-w-[120px] truncate font-semibold">{user?.name}</span>
+              <ChevronDown className={cn('h-4 w-4 text-white/70 transition-transform', dropdownOpen && 'rotate-180')} />
             </button>
             {dropdownOpen && (
-              <div className="liquid-glass absolute right-0 mt-2 w-48 py-2 text-heading">
-                <Link href="/student/profile" className="block px-4 py-2 text-sm hover:bg-background" onClick={() => setDropdownOpen(false)}>Profile</Link>
-                <Link href="/student/settings" className="block px-4 py-2 text-sm hover:bg-background" onClick={() => setDropdownOpen(false)}>Settings</Link>
-                <button onClick={logout} className="block w-full px-4 py-2 text-left text-sm text-danger hover:bg-background">Logout</button>
+              <div role="menu" className="absolute right-0 mt-2 w-64 overflow-hidden rounded-2xl border border-white/70 bg-background text-heading shadow-2xl backdrop-blur-xl">
+                <div className="border-b border-border/70 px-4 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-extrabold text-white">{user?.name?.charAt(0).toUpperCase()}</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-extrabold">{user?.name}</p>
+                      <p className="truncate text-xs text-body">{user?.email}</p>
+                    </div>
+                  </div>
+                  <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">{user?.role}</span>
+                </div>
+                {accountLinks.length > 0 && <div className="p-2">
+                  {accountLinks.map((item) => <Link key={item.href} role="menuitem" href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition hover:bg-primary/10 focus:bg-primary/10 focus:outline-none" onClick={() => setDropdownOpen(false)}><item.icon className="h-4 w-4 text-body" />{item.label}</Link>)}
+                </div>}
+                <div className="border-t border-border/70 p-2">
+                  <button type="button" role="menuitem" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-danger transition hover:bg-danger/10 focus:bg-danger/10 focus:outline-none"><LogOut className="h-4 w-4" />Log out</button>
+                </div>
               </div>
             )}
           </div>
@@ -162,7 +206,8 @@ export function Navbar() {
               {link.label}
             </Link>
           ))}
-          <button onClick={logout} className="mt-2 block w-full py-3 text-left text-sm text-danger">Logout</button>
+          {accountLinks.map((item) => <Link key={item.href} href={item.href} className="flex items-center gap-3 py-3 text-sm font-medium" onClick={() => setMobileOpen(false)}><item.icon className="h-4 w-4" />{item.label}</Link>)}
+          <button onClick={handleLogout} className="mt-2 flex w-full items-center gap-3 border-t border-white/10 py-3 text-left text-sm text-danger"><LogOut className="h-4 w-4" />Log out</button>
         </div>
       )}
     </nav>

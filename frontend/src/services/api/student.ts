@@ -1,5 +1,19 @@
 import api from '@/lib/axios';
 
+const pendingCourseRequests = new Map<string, Promise<any>>();
+
+function dedupeCourseRequest<T>(key: string, request: () => Promise<T>): Promise<T> {
+  const pending = pendingCourseRequests.get(key) as Promise<T> | undefined;
+  if (pending) return pending;
+  const next = request();
+  pendingCourseRequests.set(key, next);
+  void next.then(
+    () => pendingCourseRequests.delete(key),
+    () => pendingCourseRequests.delete(key),
+  );
+  return next;
+}
+
 export const studentAPI = {
   // Dashboard
   async getDashboard() {
@@ -38,13 +52,17 @@ export const studentAPI = {
 
   // Courses
   async getEnrolledCourses(page = 1, limit = 20) {
-    const response = await api.get('/courses/my', { params: { page, limit } });
-    return response.data;
+    return dedupeCourseRequest(`enrolled:${page}:${limit}`, async () => {
+      const response = await api.get('/courses/my', { params: { page, limit } });
+      return response.data;
+    });
   },
 
   async getAvailableCourses(page = 1, limit = 20) {
-    const response = await api.get('/courses', { params: { page, limit } });
-    return response.data;
+    return dedupeCourseRequest(`available:${page}:${limit}`, async () => {
+      const response = await api.get('/courses', { params: { page, limit } });
+      return response.data;
+    });
   },
 
   async enrollInCourse(courseId: string) {
@@ -54,6 +72,21 @@ export const studentAPI = {
 
   async getCourseDetails(courseId: string) {
     const response = await api.get(`/courses/${courseId}`);
+    return response.data;
+  },
+
+  async getStudyPlans() {
+    const response = await api.get('/planner');
+    return response.data;
+  },
+
+  async createStudyPlan(data: { title: string; scheduledAt: string; durationMinutes: number }) {
+    const response = await api.post('/planner', data);
+    return response.data;
+  },
+
+  async deleteStudyPlan(planId: string) {
+    const response = await api.delete(`/planner/${planId}`);
     return response.data;
   },
 };

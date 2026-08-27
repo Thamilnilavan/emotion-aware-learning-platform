@@ -8,7 +8,7 @@ export const dashboardAPI = {
   getTeacherStudents: () => api.get('/teacher/students'),
   getStudentSessions: (studentId: string) =>
     api.get(`/teacher/students/${studentId}/sessions`),
-  sendFeedback: (data: { studentId: string; message: string; type: string }) =>
+  sendFeedback: (data: { studentId: string; message: string; type: string; courseId?: string }) =>
     api.post('/teacher/feedback', data),
   getEarlyWarnings: () => api.get('/teacher/earlywarnings'),
   getAdminUsers: (params: Record<string, any>) =>
@@ -47,5 +47,7 @@ export const coursesAPI = {
         if (event.total && onProgress) onProgress(Math.round((event.loaded * 100) / event.total));
       },
     }),
+  uploadTranscript: (data: FormData) =>
+    api.post<{ success: boolean; transcriptUrl: string }>('/courses/upload-transcript', data),
   enroll: (id: string) => api.post<{ success: boolean }>(`/courses/${id}/enroll`),
 };

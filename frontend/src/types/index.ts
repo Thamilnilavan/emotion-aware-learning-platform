@@ -120,6 +120,10 @@ export interface CourseContent {
   url: string;
   durationMinutes: number;
   order: number;
+  transcript?: {
+    url: string;
+    language: string;
+  };
 }
 
 export interface Course {

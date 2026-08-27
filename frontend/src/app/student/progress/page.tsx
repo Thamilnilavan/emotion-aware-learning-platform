@@ -20,7 +20,7 @@ function ProgressContent() {
       try {
         const response = await studentAPI.getProgress();
         if (active) {
-          setProgressData(response.data);
+          setProgressData(response);
           setLastUpdated(new Date());
         }
       } catch {

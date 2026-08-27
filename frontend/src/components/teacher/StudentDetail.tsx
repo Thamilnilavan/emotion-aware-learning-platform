@@ -39,7 +39,7 @@ export function StudentDetail({ studentId }: StudentDetailProps) {
   const [sessions, setSessions] = useState<LearningSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [feedback, setFeedback] = useState({ message: '', type: 'encouragement' });
+  const [feedback, setFeedback] = useState({ message: '', type: 'encouragement', courseId: '' });
   const [commentSession, setCommentSession] = useState<LearningSession | null>(null);
   const [reportComment, setReportComment] = useState('');
   const [savingComment, setSavingComment] = useState(false);
@@ -58,7 +58,7 @@ export function StudentDetail({ studentId }: StudentDetailProps) {
       await dashboardAPI.sendFeedback({ studentId, ...feedback });
       toast.success('Feedback sent');
       setShowModal(false);
-      setFeedback({ message: '', type: 'encouragement' });
+      setFeedback({ message: '', type: 'encouragement', courseId: '' });
     } catch {
       toast.error('Failed to send feedback');
     }
@@ -124,6 +124,14 @@ export function StudentDetail({ studentId }: StudentDetailProps) {
   const avgScore = sessions.length
     ? Math.round(sessions.reduce((sum, s) => sum + (s.summary?.averageScore || 0), 0) / sessions.length)
     : 0;
+  const feedbackCourses = Array.from(new Map(
+    sessions
+      .filter((session) => typeof session.courseId === 'object')
+      .map((session) => {
+        const course = session.courseId as { _id: string; title: string };
+        return [course._id, course] as const;
+      })
+  ).values());
 
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
@@ -220,6 +228,10 @@ export function StudentDetail({ studentId }: StudentDetailProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6">
             <h3 className="mb-4 font-bold text-heading">Send Feedback</h3>
+            <select value={feedback.courseId} onChange={(e) => setFeedback({ ...feedback, courseId: e.target.value })} className="mb-4 w-full rounded-xl border px-4 py-2">
+              <option value="">General guidance</option>
+              {feedbackCourses.map((course) => <option key={course._id} value={course._id}>{course.title}</option>)}
+            </select>
             <select value={feedback.type} onChange={(e) => setFeedback({ ...feedback, type: e.target.value })} className="mb-4 w-full rounded-xl border px-4 py-2">
               <option value="encouragement">Encouragement</option>
               <option value="feedback">Feedback</option>

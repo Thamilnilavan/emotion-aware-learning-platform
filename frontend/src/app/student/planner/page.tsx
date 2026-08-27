@@ -1,35 +1,72 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Clock, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import studentAPI from '@/services/api/student';
+
+interface StudyPlan {
+  _id: string;
+  title: string;
+  scheduledAt: string;
+  durationMinutes: number;
+}
 
 function PlannerContent() {
-  const [studySessions, setStudySessions] = useState<Array<Record<string, any>>>([
-    { id: 1, title: 'Mathematics Review', date: '2026-06-22', time: '10:00', duration: 60 },
-    { id: 2, title: 'Physics Lab Prep', date: '2026-06-23', time: '14:00', duration: 90 },
-  ]);
+  const [studySessions, setStudySessions] = useState<StudyPlan[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [newSession, setNewSession] = useState({ title: '', date: '', time: '', duration: 60 });
 
-  const handleAddSession = () => {
+  const loadPlans = useCallback(async (showError = false) => {
+    try {
+      const response = await studentAPI.getStudyPlans();
+      setStudySessions(response.plans || []);
+    } catch {
+      if (showError) toast.error('Failed to load your study planner');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPlans(true);
+    const interval = window.setInterval(() => void loadPlans(false), 15000);
+    return () => window.clearInterval(interval);
+  }, [loadPlans]);
+
+  const handleAddSession = async () => {
     if (!newSession.title || !newSession.date || !newSession.time) {
       toast.error('Please fill in all fields');
       return;
     }
-    setStudySessions([...studySessions, { ...newSession, id: Date.now() }]);
-    setNewSession({ title: '', date: '', time: '', duration: 60 });
-    setShowForm(false);
-    toast.success('Study session added');
+    try {
+      await studentAPI.createStudyPlan({
+        title: newSession.title.trim(),
+        scheduledAt: new Date(`${newSession.date}T${newSession.time}`).toISOString(),
+        durationMinutes: newSession.duration,
+      });
+      await loadPlans();
+      setNewSession({ title: '', date: '', time: '', duration: 60 });
+      setShowForm(false);
+      toast.success('Study session saved');
+    } catch {
+      toast.error('Failed to save study session');
+    }
   };
 
-  const handleDeleteSession = (id: number) => {
-    setStudySessions(studySessions.filter(s => s.id !== id));
-    toast.success('Study session deleted');
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await studentAPI.deleteStudyPlan(id);
+      setStudySessions((current) => current.filter((session) => session._id !== id));
+      toast.success('Study session deleted');
+    } catch {
+      toast.error('Failed to delete study session');
+    }
   };
 
   return (
@@ -111,11 +148,13 @@ function PlannerContent() {
           <div className="glass-card p-6">
             <h3 className="mb-4 font-bold text-heading">Upcoming Sessions</h3>
             <div className="space-y-3">
-              {studySessions.length === 0 ? (
+              {loading ? (
+                <div className="flex justify-center py-8"><LoadingSpinner /></div>
+              ) : studySessions.length === 0 ? (
                 <p className="py-8 text-center text-body">No study sessions scheduled</p>
               ) : (
-                studySessions.map((session: any) => (
-                  <div key={session.id} className="flex items-center justify-between rounded-xl border border-white/20 p-4">
+                studySessions.map((session) => (
+                  <div key={session._id} className="flex items-center justify-between rounded-xl border border-white/20 p-4">
                     <div className="flex items-center gap-4">
                       <div className="rounded-full bg-primary/20 p-3">
                         <Clock className="h-5 w-5 text-primary" />
@@ -123,12 +162,12 @@ function PlannerContent() {
                       <div>
                         <p className="font-medium text-heading">{session.title}</p>
                         <p className="text-sm text-body">
-                          {new Date(session.date).toLocaleDateString()} at {session.time} · {session.duration} min
+                          {new Date(session.scheduledAt).toLocaleString()} · {session.durationMinutes} min
                         </p>
                       </div>
                     </div>
                     <button
-                      onClick={() => handleDeleteSession(session.id)}
+                      onClick={() => handleDeleteSession(session._id)}
                       className="rounded-lg p-2 text-danger hover:bg-danger/10"
                     >
                       <Trash2 className="h-4 w-4" />

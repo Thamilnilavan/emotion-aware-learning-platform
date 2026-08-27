@@ -8,6 +8,10 @@ const normalizeContent = (content) => {
     url: String(item.url || '').trim(),
     durationMinutes: Math.max(0, Number(item.durationMinutes) || 0),
     order: index,
+    transcript: {
+      url: String(item.transcript?.url || '').trim(),
+      language: String(item.transcript?.language || 'en').trim().slice(0, 16) || 'en',
+    },
   })).filter((item) => item.title && item.url);
 };
 

@@ -46,7 +46,7 @@ function PrivacyContent() {
   const consent = privacy?.consentBreakdown as Record<string, number> | undefined;
 
   const updateRequest = async (id: string, status: 'approved' | 'rejected' | 'completed') => {
-    if (status === 'completed' && !window.confirm('Permanently delete this user account and all associated learning, prediction, notification, and enrolment data? This cannot be undone.')) return;
+    if (status === 'completed' && !window.confirm('Permanently delete this user account and all associated learning, prediction, notification, and enrollment data? This cannot be undone.')) return;
     try {
       const result = await adminAPI.updateDeletionRequest(id, status);
       const summary = result.request?.deletionSummary;

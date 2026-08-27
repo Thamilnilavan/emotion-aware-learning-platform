@@ -15,10 +15,16 @@ function EngagementReportsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    teacherAPI.getEngagementReports(timeRange)
-      .then(setReportsData)
-      .catch(() => toast.error('Failed to load engagement reports'))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try { const data = await teacherAPI.getEngagementReports(timeRange); if (active) setReportsData(data); }
+      catch { if (showError) toast.error('Failed to load engagement reports'); }
+      finally { if (active) setLoading(false); }
+    };
+    setLoading(true);
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 10000);
+    return () => { active = false; window.clearInterval(interval); };
   }, [timeRange]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;

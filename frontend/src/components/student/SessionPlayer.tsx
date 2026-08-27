@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Pause, Camera, CameraOff, LogOut, Maximize, Minimize, Settings, FileText, Download, ChevronUp, ChevronDown, X, RotateCcw, RotateCw } from 'lucide-react';
+import { Play, Pause, Camera, CameraOff, LogOut, Maximize, Minimize, Settings, FileText, Download, ChevronUp, ChevronDown, X, RotateCcw, RotateCw, Captions, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { coursesAPI } from '@/services/api/dashboard';
 import { sessionAPI } from '@/services/api/sessions';
@@ -14,6 +14,7 @@ import { EngagementOverlay } from './EngagementOverlay';
 import { InterventionAlert } from './InterventionAlert';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getEmotionEmoji } from '@/lib/utils';
+import { parseWebVtt, type TranscriptCue } from '@/lib/transcript';
 import type { Course, FrameResult } from '@/types';
 
 interface SessionPlayerProps {
@@ -46,7 +47,11 @@ export function SessionPlayer({ courseId }: SessionPlayerProps) {
   const [showMaterials, setShowMaterials] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState<'notes' | 'materials'>('notes');
+  const [sidebarTab, setSidebarTab] = useState<'notes' | 'transcript' | 'materials'>('notes');
+  const [transcript, setTranscript] = useState<TranscriptCue[]>([]);
+  const [transcriptSearch, setTranscriptSearch] = useState('');
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const [transcriptError, setTranscriptError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const initializationStarted = useRef(false);
@@ -292,6 +297,31 @@ export function SessionPlayer({ courseId }: SessionPlayerProps) {
     setShowSettings(false);
   };
 
+  useEffect(() => {
+    const transcriptUrl = currentContent?.transcript?.url;
+    setTranscript([]);
+    setTranscriptSearch('');
+    setTranscriptError('');
+    if (!transcriptUrl) return;
+
+    const controller = new AbortController();
+    setTranscriptLoading(true);
+    fetch(getFullVideoUrl(transcriptUrl), { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error('Transcript could not be loaded');
+        return response.text();
+      })
+      .then((contents) => setTranscript(parseWebVtt(contents)))
+      .catch((error: Error) => {
+        if (error.name !== 'AbortError') setTranscriptError(error.message || 'Transcript could not be loaded');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setTranscriptLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [currentContent?.transcript?.url]);
+
   const seekVideo = (time: number) => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(video.duration)) return;
@@ -391,6 +421,15 @@ export function SessionPlayer({ courseId }: SessionPlayerProps) {
                 {cameraEnabled ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
               </button>
               <button
+                onClick={() => { setSidebarTab('transcript'); setShowSidebar(true); }}
+                className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${currentContent?.transcript?.url ? 'bg-white/10 text-white hover:bg-white/20' : 'cursor-not-allowed text-white/30'}`}
+                aria-label="Open transcript"
+                title={currentContent?.transcript?.url ? 'Open transcript' : 'No transcript for this lesson'}
+                disabled={!currentContent?.transcript?.url}
+              >
+                <Captions className="h-4 w-4" />
+              </button>
+              <button
                 onClick={toggleFullscreen}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10"
                 aria-label="Enter fullscreen"
@@ -455,7 +494,17 @@ export function SessionPlayer({ courseId }: SessionPlayerProps) {
                 onPlay={() => setVideoPaused(false)}
                 autoPlay
                 playsInline
-              />
+              >
+                {currentContent.transcript?.url && (
+                  <track
+                    kind="subtitles"
+                    src={getFullVideoUrl(currentContent.transcript.url)}
+                    srcLang={currentContent.transcript.language || 'en'}
+                    label="Transcript"
+                    default
+                  />
+                )}
+              </video>
             ) : currentContent ? (
               <iframe src={getFullVideoUrl(currentContent.url)} className="h-full w-full border-none bg-white" title={currentContent.title} />
             ) : (
@@ -668,6 +717,14 @@ export function SessionPlayer({ courseId }: SessionPlayerProps) {
                     Notes
                   </button>
                   <button
+                    onClick={() => setSidebarTab('transcript')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      sidebarTab === 'transcript' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Transcript
+                  </button>
+                  <button
                     onClick={() => setSidebarTab('materials')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       sidebarTab === 'materials' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -700,6 +757,55 @@ export function SessionPlayer({ courseId }: SessionPlayerProps) {
                       className="w-full h-64 p-4 border border-gray-300 rounded-lg text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                     />
                     <p className="mt-2 text-xs text-gray-500">Press Tab to toggle this sidebar</p>
+                  </div>
+                ) : sidebarTab === 'transcript' ? (
+                  <div>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-bold text-gray-900">Lesson Transcript</h3>
+                      <p className="mt-1 text-xs text-gray-500">Select a line to jump to that moment in the video.</p>
+                    </div>
+                    {currentContent?.transcript?.url && (
+                      <label className="mb-4 flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2">
+                        <Search className="h-4 w-4 text-gray-400" />
+                        <input
+                          value={transcriptSearch}
+                          onChange={(event) => setTranscriptSearch(event.target.value)}
+                          placeholder="Search transcript"
+                          className="min-w-0 flex-1 bg-transparent text-sm text-gray-900 outline-none"
+                        />
+                      </label>
+                    )}
+                    {transcriptLoading ? (
+                      <div className="flex justify-center py-10"><LoadingSpinner size="sm" /></div>
+                    ) : transcriptError ? (
+                      <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{transcriptError}</p>
+                    ) : !currentContent?.transcript?.url ? (
+                      <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center">
+                        <Captions className="mx-auto mb-2 h-7 w-7 text-gray-400" />
+                        <p className="text-sm font-medium text-gray-700">No transcript is available for this lesson.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {transcript
+                          .filter((cue) => cue.text.toLowerCase().includes(transcriptSearch.trim().toLowerCase()))
+                          .map((cue) => {
+                            const active = videoTime >= cue.start && videoTime < cue.end;
+                            return (
+                              <button
+                                key={`${cue.start}-${cue.end}-${cue.text}`}
+                                onClick={() => seekVideo(cue.start)}
+                                className={`flex w-full gap-3 rounded-lg p-3 text-left transition-colors ${active ? 'bg-purple-100 ring-1 ring-purple-300' : 'hover:bg-gray-100'}`}
+                              >
+                                <span className={`shrink-0 text-xs font-bold tabular-nums ${active ? 'text-purple-700' : 'text-gray-500'}`}>{formatVideoTime(cue.start)}</span>
+                                <span className={`text-sm leading-5 ${active ? 'font-medium text-purple-950' : 'text-gray-800'}`}>{cue.text}</span>
+                              </button>
+                            );
+                          })}
+                        {transcript.length > 0 && transcript.filter((cue) => cue.text.toLowerCase().includes(transcriptSearch.trim().toLowerCase())).length === 0 && (
+                          <p className="py-8 text-center text-sm text-gray-500">No transcript lines match your search.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>

@@ -55,26 +55,60 @@ export function StudentDashboard() {
   const [progressData, setProgressData] = useState<DataRecord | null>(null);
   const [achievementsData, setAchievementsData] = useState<DataRecord | null>(null);
   const [recommendationsData, setRecommendationsData] = useState<DataRecord | null>(null);
+  const [studyPlans, setStudyPlans] = useState<DataRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      studentAPI.getDashboard(),
-      studentAPI.getProgress(),
-      studentAPI.getAchievements(),
-      studentAPI.getRecommendations(),
-    ])
-      .then(([dashboard, progress, achievements, recommendations]) => {
-        setDashboardData(dashboard);
-        setProgressData(progress);
-        setAchievementsData(achievements);
-        setRecommendationsData(recommendations);
-      })
-      .catch((error) => {
+    let active = true;
+    let refreshInFlight = false;
+    const loadInitial = async () => {
+      try {
+        const [dashboard, progress, achievements, recommendations, plans] = await Promise.all([
+          studentAPI.getDashboard(), studentAPI.getProgress(), studentAPI.getAchievements(), studentAPI.getRecommendations(), studentAPI.getStudyPlans(),
+        ]);
+        if (active) {
+          setDashboardData(dashboard);
+          setProgressData(progress);
+          setAchievementsData(achievements);
+          setRecommendationsData(recommendations);
+          setStudyPlans((plans.plans || []) as DataRecord[]);
+        }
+      } catch (error) {
         console.error('Dashboard error:', error);
         toast.error('Unable to load your learning dashboard');
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    const refreshLiveData = async () => {
+      if (!active || refreshInFlight || document.visibilityState !== 'visible') return;
+      refreshInFlight = true;
+      try {
+        const [dashboard, recommendations] = await Promise.all([
+          studentAPI.getDashboard(),
+          studentAPI.getRecommendations(),
+        ]);
+        if (active) {
+          setDashboardData(dashboard);
+          setRecommendationsData(recommendations);
+        }
+      } catch {
+        // Preserve the last successful values during a temporary API outage.
+      } finally {
+        refreshInFlight = false;
+      }
+    };
+
+    void loadInitial();
+    const interval = window.setInterval(() => void refreshLiveData(), 30000);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') void refreshLiveData(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const recentSessions = (dashboardData?.recentSessions || []) as DataRecord[];
@@ -94,6 +128,11 @@ export function StudentDashboard() {
     [courseProgress]
   );
   const nextCourse = activeCourses[0] || courseProgress[0];
+  const upcomingPlan = studyPlans.find((plan) => new Date(String(plan.scheduledAt)).getTime() >= Date.now());
+  const latestTeacherTip = recommendations.find((item) => item.source === 'teacher');
+  const focusGoal = Number(user?.preferences?.focusGoal) || 65;
+  const upcomingPlanDate = upcomingPlan ? new Date(String(upcomingPlan.scheduledAt)) : null;
+  const planIsToday = upcomingPlanDate?.toDateString() === new Date().toDateString();
   const overallProgress = courseProgress.length
     ? Math.round(courseProgress.reduce((sum, course) => sum + Number(course.progress || 0), 0) / courseProgress.length)
     : 0;
@@ -149,6 +188,37 @@ export function StudentDashboard() {
             </div>
           </section>
 
+          <section className="liquid-glass mb-6 overflow-hidden rounded-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-4 md:px-6">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><CalendarDays className="h-5 w-5" /></span>
+                <div><h2 className="font-extrabold text-heading">Today&apos;s Learning Plan</h2><p className="text-sm text-body">Your next study step, in one place</p></div>
+              </div>
+              <Link href="/student/planner" className="text-xs font-bold text-primary hover:underline">Open planner</Link>
+            </div>
+            <div className="grid gap-px bg-border/60 sm:grid-cols-2 xl:grid-cols-[1fr_1.15fr_1.35fr_0.9fr_auto]">
+              <div className="flex min-w-0 gap-3 bg-background p-4 md:p-5">
+                <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div className="min-w-0"><p className="text-xs font-semibold text-body">Next scheduled study</p><p className="mt-1 truncate text-sm font-bold text-heading">{upcomingPlan?.title || 'No session scheduled'}</p><p className="mt-1 text-xs text-body">{upcomingPlanDate ? `${planIsToday ? 'Today' : upcomingPlanDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${upcomingPlanDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}` : 'Add one in your planner'}</p></div>
+              </div>
+              <div className="flex min-w-0 gap-3 bg-background p-4 md:p-5">
+                <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-body">Continue learning</p><p className="mt-1 truncate text-sm font-bold text-heading">{nextCourse?.title || 'Choose your first course'}</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Number(nextCourse?.progress) || 0)}%` }} /></div><p className="mt-1 text-xs text-body">{Math.round(Number(nextCourse?.progress) || 0)}% complete</p></div>
+              </div>
+              <div className="flex min-w-0 gap-3 bg-background p-4 md:p-5">
+                <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div className="min-w-0"><p className="text-xs font-semibold text-body">Latest teacher tip</p><p className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-heading">{latestTeacherTip?.description || 'No new teacher guidance yet'}</p><p className="mt-1 truncate text-xs text-body">{latestTeacherTip ? `${latestTeacherTip.teacherName || 'Your teacher'} · ${latestTeacherTip.courseName || 'General guidance'}` : 'New feedback will appear here'}</p></div>
+              </div>
+              <div className="flex min-w-0 gap-3 bg-background p-4 md:p-5">
+                <Target className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div><p className="text-xs font-semibold text-body">Daily focus goal</p><p className="mt-1 text-xl font-extrabold text-heading">{focusGoal}%</p><p className="text-xs text-body">Target engagement</p></div>
+              </div>
+              <div className="flex items-center bg-background p-4 md:p-5 sm:col-span-2 xl:col-span-1">
+                <Link href={nextCourse ? `/student/learning-session/${nextCourse.courseId}` : '/student/courses'} className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-hover xl:w-auto">{nextCourse ? 'Resume learning' : 'Find a course'}<ArrowRight className="h-4 w-4" /></Link>
+              </div>
+            </div>
+          </section>
+
           <section className="universe-panel mb-6 rounded-2xl">
             <div className="relative z-[1] grid divide-y divide-white/10 md:grid-cols-[1.2fr_1fr_1fr_1fr] md:divide-x md:divide-y-0">
               <div className="flex items-center gap-4 p-5">
@@ -186,11 +256,11 @@ export function StudentDashboard() {
             </div>
 
             <div className="liquid-glass rounded-2xl p-5 md:p-6">
-              <div className="mb-5 flex items-center gap-3"><div className="rounded-xl bg-secondary/60 p-2 text-primary"><Zap className="h-5 w-5" /></div><div><h2 className="font-extrabold text-heading">AI recommendations</h2><p className="text-sm text-body">Generated from your learning patterns</p></div></div>
+              <div className="mb-5 flex items-center gap-3"><div className="rounded-xl bg-secondary/60 p-2 text-primary"><Zap className="h-5 w-5" /></div><div><h2 className="font-extrabold text-heading">Teacher Tips & Recommendations</h2><p className="text-sm text-body">Teacher guidance plus suggestions from your learning patterns</p></div></div>
               <div className="space-y-3">
                 {recommendations.slice(0, 3).map((item, index) => (
                   <Link key={`${item.title}-${index}`} href={item.courseId ? `/student/learning-session/${item.courseId}` : '/student/recommendations'} className="block rounded-2xl bg-muted/60 p-4 transition hover:bg-primary/10">
-                    <div className="flex items-start gap-3"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><p className="text-sm font-bold text-heading">{item.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-body">{item.description}</p></div></div>
+                    <div className="flex items-start gap-3"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div><p className="text-sm font-bold text-heading">{item.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-body">{item.description}</p><p className="mt-2 text-[11px] font-semibold text-primary">{item.source === 'teacher' ? `${item.teacherName || 'Your teacher'} · ${item.courseName || 'General guidance'}` : item.source === 'course' ? 'Course recommendation' : 'Based on your analytics'}</p></div></div>
                   </Link>
                 ))}
                 {!recommendations.length && <p className="rounded-xl bg-muted/60 p-4 text-sm text-body">Complete a learning session to receive personalised recommendations.</p>}

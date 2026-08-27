@@ -18,7 +18,7 @@ export function AIAssistantWidget() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Hi there! I am your AI learning assistant. How can I help you today?',
+      content: 'Hi! I’m Eduvo Assistant. I only help with education and student-learning questions. Ask me about a course, assignment, exam, or study plan.',
     }
   ]);
   const [input, setInput] = useState('');
@@ -35,6 +35,19 @@ export function AIAssistantWidget() {
       scrollToBottom();
     }
   }, [messages, isOpen]);
+
+  useEffect(() => {
+    let active = true;
+    assistantAPI.getHistory().then((response) => {
+      if (!active || !response.data.messages?.length) return;
+      setMessages(response.data.messages.map((message, index) => ({
+        id: message._id || `history-${index}`,
+        role: message.role,
+        content: message.content,
+      })));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,8 +112,8 @@ export function AIAssistantWidget() {
               <Bot className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Gemini Assistant</h3>
-              <p className="text-xs text-white/50">Powered by Google AI</p>
+              <h3 className="font-semibold text-white">Eduvo Assistant</h3>
+              <p className="text-xs text-white/50">Education questions only</p>
             </div>
           </div>
           <button 

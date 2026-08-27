@@ -14,10 +14,15 @@ function EmotionsContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    teacherAPI.getEmotionAnalytics()
-      .then(setEmotionsData)
-      .catch(() => toast.error('Failed to load emotion analytics'))
-      .finally(() => setLoading(false));
+    let active = true;
+    const load = async (showError = false) => {
+      try { const data = await teacherAPI.getEmotionAnalytics(); if (active) setEmotionsData(data); }
+      catch { if (showError) toast.error('Failed to load emotion analytics'); }
+      finally { if (active) setLoading(false); }
+    };
+    void load(true);
+    const interval = window.setInterval(() => void load(false), 10000);
+    return () => { active = false; window.clearInterval(interval); };
   }, []);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center"><LoadingSpinner size="lg" /></div>;
